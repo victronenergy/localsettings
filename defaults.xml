@@ -1,0 +1,9 @@
+<Settings>
+	<System>
+		<Brightness>100</Brightness>
+	</System>
+	<Logging>
+		<LogPath>.</LogPath>
+		<LogInterval>900</LogInterval>
+	</Logging>
+</Settings>
