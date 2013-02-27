@@ -36,18 +36,18 @@ bus = None
 ## Dbus service name
 dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
-InterfaceDefault = 'com.victronenergy.Default'
 
-## The setttings
+## The dictonary's
 settings = {}
 defaults = {}
+groups = []
 
 ## The list of MyDbusService(s)
 myDbusServices = []
+myDbusGroupServices = []
 
 ## File related stuff
-timeoutSaveSettingsStarted = False
-timeoutSaveSettingsEventId = 0
+timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 5
 execPath = ''
 fileSettings = ''
@@ -60,71 +60,87 @@ class MyDbusObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
+		global settings
+		global groups
+		if self._object_path in groups:
+			return -1
 		return settings[self._object_path]
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
+		global settings
+		if self._object_path in groups:
+			return ''
 		return str(settings[self._object_path])
 
 	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
 	def SetValue(self, value):
+		if self._object_path in groups:
+			return -1
 		self._setValue(value)
 		return 0
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'v')
 	def _setValue(self, value):
-		global timeoutSaveSettingsStarted
 		global timeoutSaveSettingsEventId
 		global timeoutSaveSettingsTime
 		global settings
 
 		tracing.log.info('_setValue %s %s' % (self._object_path, value))
 		settings[self._object_path] = value
-		if not timeoutSaveSettingsStarted:
-			timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettings)
-			timeoutSaveSettingsStarted = True
+		if timeoutSaveSettingsEventId:
+			source_remove(timeoutSaveSettingsEventId)
+			timeoutSaveSettingsEventId = None
+		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettings)
 
-
-	@dbus.service.method(InterfaceDefault, out_signature = 'v')
+	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
 		global defaults
+		if self._object_path in groups:
+			return -1
 		return defaults[self._object_path]
 
-	@dbus.service.method(InterfaceDefault, out_signature = 'i')
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
+		global myDbusServices
 		global defaults
-		global settings
-		self._setValue(defaults[self._object_path])
+		if self._object_path in groups:
+			for service in myDbusServices:
+				servicePath = service._object_path
+				if self._object_path in servicePath:
+					service._setValue(defaults[servicePath])
+		else:
+			self._setValue(defaults[self._object_path])
 		return 0
 
 def saveSettings():
-	global timeoutSaveSettingsStarted
 	global timeoutSaveSettingsEventId
 	global settings
 	global fileSettings
 
 	tracing.log.info('saveSettings')
 	source_remove(timeoutSaveSettingsEventId)
-	timeoutSaveSettingsStarted = False
+	timeoutSaveSettingsEventId = None
 	parseDictonaryToXmlFile(settings, fileSettings)
 
-def parseXmlFileToDictonary(file, dictonary):
+def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
 	tracing.log.info(etree.tostring(root))
-	parseXmlToDictonary(root, '/', dictonary)
+	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups)
 
-def parseXmlToDictonary(element, path, dictonary):
-	path += element.tag
-	if len(element):
+def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups):
+	if path != '/':
 		path += '/'
+	path += element.tag
 	for child in element:
-		parseXmlToDictonary(child, path, dictonary)
+		parseXmlToDictonary(child, path, dictonaryItems, arrayGroups)
 
 	if element.text:
-		path.strip('/')
-		dictonary[path] = element.text
+		dictonaryItems[path] = element.text
+	elif arrayGroups != None:		
+		arrayGroups.append(path)
 
 def parseDictonaryToXmlFile(dictonary, file):
 	root = None
@@ -162,9 +178,11 @@ def run():
 	global bus
 	global dbusName
 	global myDbusServices
+	global myDbusGroupServices
 	global settings
 	global execPath
 	global fileSettings
+	global groups
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -192,9 +210,10 @@ def run():
 	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
 
 	# read the settings.xml and defaults.xml
-	parseXmlFileToDictonary(fileSettings, settings)
+	parseXmlFileToDictonary(fileSettings, settings, groups)
 	tracing.log.info(settings.items())
-	parseXmlFileToDictonary(fileDefaults, defaults)
+	tracing.log.info(groups)
+	parseXmlFileToDictonary(fileDefaults, defaults, None)
 	tracing.log.info(defaults.items())
 
 	# get on the bus
@@ -208,6 +227,9 @@ def run():
 	for setting in settings:
 		myDbusObject = MyDbusObject(busName, setting)
 		myDbusServices.append(myDbusObject)
+	for group in groups:
+		myDbusObject = MyDbusObject(busName, group)
+		myDbusGroupServices.append(myDbusObject)
 
 	MainLoop().run()
 
