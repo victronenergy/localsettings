@@ -267,6 +267,16 @@ def run():
 	parseXmlFileToDictonary(fileDefaults, defaults, None)
 	tracing.log.debug(defaults.items())
 
+	# check if a default is added.
+	added = False
+	for key in defaults:
+		if not key in settings:
+			settings[key] = defaults[key]
+			added = True
+	if added == True:
+		tracing.log.info('Added new default items to settings')
+		parseDictonaryToXmlFile(settings, fileSettings)
+
 	# get on the bus
 	if isHostPC():
 		bus = dbus.SessionBus()
