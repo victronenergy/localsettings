@@ -1,8 +1,4 @@
 <Settings>
-  <Test>
-    <Test2 default="test" type="s">test</Test2>
-    <Test1 default="100" max="100" type="i" min="0">100</Test1>
-  </Test>
   <System>
     <Brightness type="i" min="0" max="100" default="100">100</Brightness>
   </System>
