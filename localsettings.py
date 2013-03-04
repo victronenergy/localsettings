@@ -41,10 +41,9 @@ InterfaceSettings = 'com.victronenergy.Settings'
 
 ## The dictonary's
 settings = {}
-defaults = {}
 groups = []
 
-## Index values for settings and defaults
+## Index values for settings
 VALUE = 0
 ATTRIB = 1
 
@@ -52,6 +51,7 @@ ATTRIB = 1
 TYPE='type'
 MIN='min'
 MAX='max'
+DEFAULT='default'
 
 ## Dictonary for xml text to type x conversion.
 supportedTypes = {
@@ -69,7 +69,6 @@ timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 5
 execPath = ''
 fileSettings = ''
-fileDefaults = ''
 
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
@@ -132,35 +131,40 @@ class MyDbusObject(dbus.service.Object):
 
 		tracing.log.info('_setValue %s %s' % (self._object_path, value))
 		settings[self._object_path][VALUE] = value
-		self._startTimeoutSaveSettings(True, False)
+		self._startTimeoutSaveSettings()
 
-	def _startTimeoutSaveSettings(self, writeSettings, writeDefaults):
+	def _startTimeoutSaveSettings(self):
 		global timeoutSaveSettingsEventId
 		global timeoutSaveSettingsTime
 
 		if timeoutSaveSettingsEventId:
 			source_remove(timeoutSaveSettingsEventId)
 			timeoutSaveSettingsEventId = None
-		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettings, writeSettings, writeDefaults)
+		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettings)
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
-		global defaults
-		if self._object_path in groups:
+		global settings
+		path = self._object_path
+		if path in groups:
 			return -1
-		return defaults[self._object_path][VALUE]
+		type = settings[path][ATTRIB][TYPE]
+		value = convertToType(type, settings[path][ATTRIB][DEFAULT])
+		return value
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
 		global myDbusServices
-		global defaults
-		if self._object_path in groups:
+		global settings
+		
+		path = self._object_path
+		if path in groups:
 			for service in myDbusServices:
 				servicePath = service._object_path
-				if self._object_path in servicePath:
-					service._setValue(defaults[servicePath][VALUE])
+				if path in servicePath:
+					service.SetValue(settings[servicePath][ATTRIB][DEFAULT])
 		else:
-			self._setValue(defaults[self._object_path][VALUE])
+			self.SetValue(settings[path][ATTRIB][DEFAULT])
 		return 0
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
@@ -185,19 +189,16 @@ class MyDbusObject(dbus.service.Object):
 							max = convertToType(itemType, maximum)
 							if value >= min and value <= max:
 								okToSave = True
-								attributes = {TYPE:str(itemType), MIN:min, MAX:max}
+								attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
 						else:
 							okToSave = True
-							attributes = {TYPE:str(itemType)}
+							attributes = {TYPE:str(itemType), DEFAULT:str(value)}
 					except:
 						okToSave = False
 		if okToSave == True:
 			settings[itemPath] = [0, {}]
-			defaults[itemPath] = [0, {}]
 			settings[itemPath][VALUE] = value
-			defaults[itemPath][VALUE] = value
 			settings[itemPath][ATTRIB] = attributes
-			defaults[itemPath][ATTRIB] = attributes
 			if not groupPath in groups:
 				groups.append(groupPath)
 				myDbusObject = MyDbusObject(busName, groupPath)
@@ -206,26 +207,21 @@ class MyDbusObject(dbus.service.Object):
 			myDbusServices.append(myDbusObject)
 			tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
 			tracing.log.debug(settings.items())
-			tracing.log.debug(defaults.items())
 			tracing.log.debug(groups)
-			self._startTimeoutSaveSettings(True, True)
+			self._startTimeoutSaveSettings()
 			return 0
 		else:
 			return -1
 
-def saveSettings(writeSettings, writeDefaults):
+def saveSettings():
 	global timeoutSaveSettingsEventId
 	global settings
 	global fileSettings
-	global fileDefaults
 
-	tracing.log.info('saveSettings %d %d' % (writeSettings, writeDefaults))
+	tracing.log.info('saveSettings')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
-	if writeSettings:
-		parseDictonaryToXmlFile(settings, fileSettings)
-	if writeDefaults:
-		parseDictonaryToXmlFile(defaults, fileDefaults)
+	parseDictonaryToXmlFile(settings, fileSettings)
 
 def convertToType(type, value):
 	if type in supportedTypes:
@@ -300,7 +296,6 @@ def run():
 	global settings
 	global execPath
 	global fileSettings
-	global fileDefaults
 	global groups
 	global busName
 
@@ -309,7 +304,6 @@ def run():
 	# get the exec path
 	execPath = path.dirname(sys.argv[0]) + '/'
 	fileSettings = execPath + 'settings.xml'
-	fileDefaults = execPath + 'defaults.xml'
 
 	# setup debug traces.
 	tracing.setupDebugTraces(execPath)
@@ -335,22 +329,6 @@ def run():
 	tracing.log.debug(settings.items())
 	tracing.log.debug('groups:')
 	tracing.log.debug(groups)
-	parseXmlFileToDictonary(fileDefaults, defaults, None)
-	tracing.log.debug('defaults:')
-	tracing.log.debug(defaults.items())
-
-	# check if a default is added.
-	saveChanges = False
-	for key in defaults:
-		if not key in settings:
-			settings[key] = defaults[key]
-			saveChanges = True
-		if  settings[key][ATTRIB] != defaults[key][ATTRIB]:
-			settings[key][ATTRIB] = defaults[key][ATTRIB]
-			saveChanges = True
-	if saveChanges == True:
-		tracing.log.info('Added new default items or attributes to settings')
-		parseDictonaryToXmlFile(settings, fileSettings)
 
 	# get on the bus
 	if isHostPC():

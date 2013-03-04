@@ -1,9 +1,0 @@
-<Settings>
-	<System>
-		<Brightness type="i" min="0" max="100">100</Brightness>
-	</System>
-	<Logging>
-		<LogPath type="s">.</LogPath>
-		<LogInterval type="i" min="5">900</LogInterval>
-	</Logging>
-</Settings>
