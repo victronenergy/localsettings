@@ -68,7 +68,8 @@ myDbusGroupServices = []
 timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 5
 execPath = ''
-fileSettings = ''
+fileSettings = 'settings.xml'
+fileAddSettings = 'addsettings.xml'
 
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
@@ -148,24 +149,32 @@ class MyDbusObject(dbus.service.Object):
 		path = self._object_path
 		if path in groups:
 			return -1
-		type = settings[path][ATTRIB][TYPE]
-		value = convertToType(type, settings[path][ATTRIB][DEFAULT])
-		return value
+		try:
+			type = settings[path][ATTRIB][TYPE]
+			value = convertToType(type, settings[path][ATTRIB][DEFAULT])
+			return value
+		except:
+			tracing.log.info('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
+			return -1
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
 		global myDbusServices
 		global settings
 		
-		path = self._object_path
-		if path in groups:
-			for service in myDbusServices:
-				servicePath = service._object_path
-				if path in servicePath:
-					service.SetValue(settings[servicePath][ATTRIB][DEFAULT])
-		else:
-			self.SetValue(settings[path][ATTRIB][DEFAULT])
-		return 0
+		try:
+			path = self._object_path
+			if path in groups:
+				for service in myDbusServices:
+					servicePath = service._object_path
+					if path in servicePath:
+						service.SetValue(settings[servicePath][ATTRIB][DEFAULT])
+			else:
+				self.SetValue(settings[path][ATTRIB][DEFAULT])
+			return 0
+		except:
+			tracing.log.info('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
+			return -1
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
@@ -296,6 +305,7 @@ def run():
 	global settings
 	global execPath
 	global fileSettings
+	global fileAddSettings
 	global groups
 	global busName
 
@@ -303,7 +313,8 @@ def run():
 
 	# get the exec path
 	execPath = path.dirname(sys.argv[0]) + '/'
-	fileSettings = execPath + 'settings.xml'
+	fileSettings = execPath + fileSettings
+	fileAddSettings = execPath + fileAddSettings
 
 	# setup debug traces.
 	tracing.setupDebugTraces(execPath)
@@ -323,12 +334,31 @@ def run():
 	signal.signal(signal.SIGUSR1, handlerSignals) # 10: kill -USR1 <logscript-pid>
 	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
 
-	# read the settings.xml and defaults.xml
+	# read the settings.xml
 	parseXmlFileToDictonary(fileSettings, settings, groups)
 	tracing.log.debug('settings:')
 	tracing.log.debug(settings.items())
 	tracing.log.debug('groups:')
 	tracing.log.debug(groups)
+
+	# check if new settings must be added
+	if path.isfile(fileAddSettings):
+		addSettings = {}
+		parseXmlFileToDictonary(fileAddSettings, addSettings, None)
+		tracing.log.debug('addsettings:')
+		tracing.log.debug(addSettings.items())
+		saveChanges = False
+		for item in addSettings:
+			if not item in settings:
+				settings[item] = addSettings[item]
+				saveChanges = True
+		if saveChanges == True:
+			tracing.log.info('Added new settings')
+			parseDictonaryToXmlFile(settings, fileSettings)
+			tracing.log.debug('settings:')
+			tracing.log.debug(settings.items())
+			tracing.log.debug('groups:')
+			tracing.log.debug(groups)
 
 	# get on the bus
 	if isHostPC():

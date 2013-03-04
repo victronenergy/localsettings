@@ -5,5 +5,6 @@
   <Logging>
     <LogInterval type="i" min="5" default="900">900</LogInterval>
     <LogPath type="s" default=".">.</LogPath>
+    <Enabled type="i" default="1" min="0" max="1">0</Enabled>
   </Logging>
 </Settings>
