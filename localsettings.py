@@ -54,7 +54,7 @@ MIN='min'
 MAX='max'
 
 ## Dictonary for xml text to type x conversion.
-types = {
+supportedTypes = {
 		'i':int,
 		's':str,
 		'f':float,
@@ -99,7 +99,7 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
 	def SetValue(self, value):
 		global settings
-		global types
+		global supportedTypes
 		
 		if self._object_path in groups:
 			return -1
@@ -107,15 +107,18 @@ class MyDbusObject(dbus.service.Object):
 		v = value
 		path = self._object_path
 		if TYPE in settings[path][ATTRIB]:
-			type = settings[path][ATTRIB][TYPE]
-			if type in types:
-				v = convertToType(type, value)
-				if MIN in settings[path][ATTRIB]:
-					if v < convertToType(type, settings[path][ATTRIB][MIN]):
-						okToSave = False
-				if MAX in settings[path][ATTRIB]:
-					if v > convertToType(type, settings[path][ATTRIB][MAX]):
-						okToSave = False
+			itemType = settings[path][ATTRIB][TYPE]
+			if itemType in supportedTypes:
+				try:
+					v = convertToType(itemType, value)
+					if MIN in settings[path][ATTRIB]:
+						if v < convertToType(itemType, settings[path][ATTRIB][MIN]):
+							okToSave = False
+					if MAX in settings[path][ATTRIB]:
+						if v > convertToType(itemType, settings[path][ATTRIB][MAX]):
+							okToSave = False
+				except:
+					okToSave = False
 		if okToSave == True:
 			if v != settings[path][VALUE]:
 				self._setValue(v)
@@ -160,8 +163,8 @@ class MyDbusObject(dbus.service.Object):
 			self._setValue(defaults[self._object_path][VALUE])
 		return 0
 
-	@dbus.service.method(InterfaceSettings, in_signature = 'ssv', out_signature = 'i')
-	def AddSetting(self, group, name, defaultValue):
+	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
+	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
 		global groups
 		global settings
 		global defaults
@@ -169,26 +172,44 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusGroupServices
 		global myDbusServices
 
+		okToSave = False
 		if self._object_path in groups:
-			pathGroup = self._object_path + '/' + str(group)
-			pathItem = pathGroup + '/' + str(name)
-			tracing.log.info('Add %s %s' % (pathItem, defaultValue))
-			if not pathGroup in groups:
-				groups.append(pathGroup)
-				myDbusObject = MyDbusObject(busName, pathGroup)
+			groupPath = self._object_path + '/' + str(group)
+			itemPath = groupPath + '/' + str(name)
+			if not itemPath in settings:
+				if itemType in supportedTypes:
+					try:
+						value = convertToType(itemType, defaultValue)
+						if type(value) != str:
+							min = convertToType(itemType, minimum)
+							max = convertToType(itemType, maximum)
+							if value >= min and value <= max:
+								okToSave = True
+								attributes = {TYPE:str(itemType), MIN:min, MAX:max}
+						else:
+							okToSave = True
+							attributes = {TYPE:str(itemType)}
+					except:
+						okToSave = False
+		if okToSave == True:
+			settings[itemPath] = [0, {}]
+			defaults[itemPath] = [0, {}]
+			settings[itemPath][VALUE] = value
+			defaults[itemPath][VALUE] = value
+			settings[itemPath][ATTRIB] = attributes
+			defaults[itemPath][ATTRIB] = attributes
+			if not groupPath in groups:
+				groups.append(groupPath)
+				myDbusObject = MyDbusObject(busName, groupPath)
 				myDbusGroupServices.append(myDbusObject)
-			if not pathItem in settings:
-				settings[pathItem][VALUE] = str(defaultValue)
-				defaults[pathItem][VALUE] = str(defaultValue)
-				tracing.log.debug(settings.items())
-				tracing.log.debug(defaults.items())
-				tracing.log.debug(groups)
-				self._startTimeoutSaveSettings(True, True)
-				myDbusObject = MyDbusObject(busName, pathItem)
-				myDbusServices.append(myDbusObject)
-				return 0
-			else:
-				return -1
+			myDbusObject = MyDbusObject(busName, itemPath)
+			myDbusServices.append(myDbusObject)
+			tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+			tracing.log.debug(settings.items())
+			tracing.log.debug(defaults.items())
+			tracing.log.debug(groups)
+			self._startTimeoutSaveSettings(True, True)
+			return 0
 		else:
 			return -1
 
@@ -207,8 +228,8 @@ def saveSettings(writeSettings, writeDefaults):
 		parseDictonaryToXmlFile(defaults, fileDefaults)
 
 def convertToType(type, value):
-	if type in types:
-		return types[type](value)
+	if type in supportedTypes:
+		return supportedTypes[type](value)
 	else:
 		return value
 
@@ -216,7 +237,7 @@ def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
-	tracing.log.debug('XML %s:' % file)
+	tracing.log.debug('parseXmlFileToDictonary %s:' % file)
 	tracing.log.debug(etree.tostring(root))
 	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups)
 
