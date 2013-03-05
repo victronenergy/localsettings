@@ -4,6 +4,27 @@
 # Dbus-service for local settings.
 #
 # The local-settings-dbus-service provides the local-settings storage in non-volatile-memory.
+# The settings are stored in the settings.xml file. At startup the xml file is parsed and
+# the dbus-service with his paths are created from the content of the xml file.
+# <Settings></Settings> is the root of the xml file. A group of settings is a child of
+# the root <Settings>. A setting is a child of a group and contains text.
+# (e.g. <LogInterval>900</LogInterval>.
+# Example 1:
+# <Settings>
+# 	<Logging>
+#		<LogInterval>900</LogInterval>
+#	</Logging>
+# </Settings>
+# This will be parsed as an dbus-object-path /Settings/Logging/LogInterval.
+# A setting can have different types. The types are s (string), i (integer) and f (float).
+# A setting can have a minimum, a maximum and a default value.
+# These are set as an attribute of a (setting) element.
+# Example 2: <Brigthness type="i" min="0" max="100" default="100">100</Brigthness>
+# Example 3: <LogInterval type="i" min="5" default="900">900</LogInterval>
+# Example 4: <LogPath type="s" default=".">.</LogPath>
+# Settings or a group of settings can be set to default. A setting (and group) can be
+# added by means of dbus. And of course a setting can be changed by means of dbus.
+
 
 # Python imports
 from dbus.mainloop.glib import DBusGMainLoop
@@ -24,26 +45,23 @@ import platform
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
 FIRMWARE_VERSION_MINOR = 0x01
-## Logscript version.
+## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
-## Setting: the log file path
-logPath = ''
-
-## The dbus object
+## The dbus bus and bus-name.
 bus = None
 busName = None
 
-## Dbus service name
+## Dbus service name and interface name(s).
 dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
 InterfaceSettings = 'com.victronenergy.Settings'
 
-## The dictonary's
+## The dictonary's containing the settings and the groups.
 settings = {}
 groups = []
 
-## Index values for settings
+## Index values for settings.
 VALUE = 0
 ATTRIB = 1
 
@@ -53,20 +71,20 @@ MIN='min'
 MAX='max'
 DEFAULT='default'
 
-## Dictonary for xml text to type x conversion.
+## Supported types for convert xml-text to value.
 supportedTypes = {
 		'i':int,
 		's':str,
 		'f':float,
-		}
+}
 
-## The list of MyDbusService(s)
+## The list of MyDbusService(s).
 myDbusServices = []
 myDbusGroupServices = []
 
-## File related stuff
+## File related stuff.
 timeoutSaveSettingsEventId = None
-timeoutSaveSettingsTime = 5
+timeoutSaveSettingsTime = 5 # Timeout value in seconds.
 execPath = ''
 fileSettings = 'settings.xml'
 fileAddSettings = 'addsettings.xml'
@@ -74,13 +92,29 @@ fileAddSettings = 'addsettings.xml'
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
 
+	## Constructor of MyDbusObject
+	#
+	# Creates the dbus-object under the given bus-name (dbus-service-name).
+	# @param busName Return value from dbus.service.BusName, see run()).
+	# @param objectPath The dbus-object-path (e.g. '/Settings/Logging/LogInterval').
 	def __init__(self, busName, objectPath):
 		dbus.service.Object.__init__(self, busName, objectPath)
 
+	## Dbus method GetDescription
+	#
+	# Returns the a description. Currently not implemented.
+	# Alwayes returns 'no description available'.
+	# @param language A language code (e.g. ISO 639-1 en-US).
+	# @param length Lenght of the language string. 
+	# @return description Always returns 'no description available'
 	@dbus.service.method(InterfaceBusItem, in_signature = 'si', out_signature = 's')
 	def GetDescription(self, language, length):
 		return 'no description available'
 	
+	## Dbus method GetValue
+	# Returns the value of the dbus-object-path (the settings).
+	# When the object-path is a group a -1 is returned.
+	# @return setting A setting value or -1 (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
 		global settings
@@ -89,6 +123,10 @@ class MyDbusObject(dbus.service.Object):
 			return -1
 		return settings[self._object_path][VALUE]
 	
+	## Dbus method GetText
+	# Returns the value as string of the dbus-object-path (the settings).
+	# When the object-path is a group a '' is returned.
+	# @return setting A setting value or '' (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
 		global settings
@@ -96,6 +134,11 @@ class MyDbusObject(dbus.service.Object):
 			return ''
 		return str(settings[self._object_path][VALUE])
 
+	## Dbus method SetValue
+	# Sets the value of a setting. When the type of the setting is a integer or float,
+	# the new value is checked according to minimum and maximum.
+	# @param value The new value for the setting.
+	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
 	def SetValue(self, value):
 		global settings
@@ -126,6 +169,9 @@ class MyDbusObject(dbus.service.Object):
 		else:
 			return -1
 
+	## Dbus signal for value changed.
+	# Also sets the value and starts the time-out for saving to the settings-xml-file.
+	# @param value The new value for the setting.
 	@dbus.service.signal(InterfaceBusItem, signature = 'v')
 	def _setValue(self, value):
 		global settings
@@ -134,6 +180,9 @@ class MyDbusObject(dbus.service.Object):
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
 
+	## Method for starting the time-out for saving to the settings-xml-file.
+	# (Re)Starts the time-out. When after x time no settings are changed,
+	# the settings-xml-file is saved.
 	def _startTimeoutSaveSettings(self):
 		global timeoutSaveSettingsEventId
 		global timeoutSaveSettingsTime
@@ -141,8 +190,11 @@ class MyDbusObject(dbus.service.Object):
 		if timeoutSaveSettingsEventId:
 			source_remove(timeoutSaveSettingsEventId)
 			timeoutSaveSettingsEventId = None
-		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettings)
+		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettingsCallback)
 
+	## Dbus method GetDefault.
+	# Returns the default value of a setting.
+	# @return value The default value or -1 (error or no default set)
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
 		global settings
@@ -157,6 +209,10 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.info('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
+	## Dbus method SetDefault.
+	# Sets the value of the setting to default. When the object-path is a group,
+	# it sets the default for all the settings in that group.
+	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
 		global myDbusServices
@@ -176,6 +232,18 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.info('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
+	## Dbus method AddSetting.
+	# Add a new setting by the given parameters. The object-path must be a group.
+	# Example 1: dbus /Settings AddSetting Groupname Settingname 100 i 0 100
+	# Example 2: dbus /Settings AddSetting Groupname Settingname '/home/root' s 0 0 
+	# When the new setting is of type string the minimum and maximum will be ignored.
+	# @param group The group-name.
+	# @param name The setting-name.
+	# @param defaultValue The default value (and initial value) of the setting.
+	# @param itemType Types 's' string, 'i' integer or 'f' float.
+	# @param minimum The minimum value.
+	# @param maximum The maximum value.
+	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
 		global groups
@@ -222,22 +290,35 @@ class MyDbusObject(dbus.service.Object):
 		else:
 			return -1
 
-def saveSettings():
+## The callback method for saving the settings-xml-file.
+# Calls the parseDictonaryToXmlFile with the dictonary settings and settings-xml-filename.
+def saveSettingsCallback():
 	global timeoutSaveSettingsEventId
 	global settings
 	global fileSettings
 
-	tracing.log.info('saveSettings')
+	tracing.log.info('saveSettingsCallback')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
 	parseDictonaryToXmlFile(settings, fileSettings)
 
+## Method for converting a value the the given type.
+# When the type is not supported it simply returns the value as is.
+# @param type The type to convert to.
+# @param value The value to convert.
+# @return value The converted value (if type is supported).
 def convertToType(type, value):
 	if type in supportedTypes:
 		return supportedTypes[type](value)
 	else:
 		return value
 
+## Method for parsing the file to the given dictonary.
+# The dictonary will be in following format {dbus-object-path, [value, {attributes}]}.
+# When a array is given for the groups, the found groups are appended.
+# @param file The filename (path can be included, e.g. /home/root/localsettings/settings.xml).
+# @param dictonaryItems The dictonary for the settings.
+# @param arrayGroups The array for the groups.
 def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
@@ -246,6 +327,13 @@ def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
 	tracing.log.debug(etree.tostring(root))
 	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups)
 
+## Method for parsing a xml-element to a dbus-object-path.
+# The dbus-object-path can be a setting (contains a text-value) or 
+# a group. Only for a setting attributes are added.
+# @param element The lxml-Element from the ElementTree API.
+# @param path The path of the element.
+# @param dictonaryItems The dictonary for the settings.
+# @param arrayGroups The array for the groups.
 def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups):
 	if path != '/':
 		path += '/'
@@ -261,6 +349,10 @@ def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups):
 		if not path in arrayGroups:
 			arrayGroups.append(path)
 
+## Method for parsing a dictonary to a giving xml-file.
+# The dictonary must be in following format {dbus-object-path, [value, {attributes}]}.
+# @param dictonary The dictonary with the settings.
+# @param file The filename.
 def parseDictonaryToXmlFile(dictonary, file):
 	tracing.log.debug('parseDictonaryToXmlFile %s' % file)
 	root = None
