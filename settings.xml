@@ -3,8 +3,16 @@
     <Brightness type="i" min="0" max="100" default="100">100</Brightness>
   </System>
   <Logging>
+    <Url type="s" default="http://vrm.victronenergy.com/log/log.php">http://vrm.victronenergy.com/log/log.php</Url>
+    <Http>
+      <Proxy type="s" default=""></Proxy>
+      <ProxyPort type="s" default=""></ProxyPort>
+    </Http>
+    <Enabled type="i" default="1" min="0" max="1">1</Enabled>
     <LogInterval type="i" min="5" default="900">900</LogInterval>
-    <LogPath type="s" default=".">.</LogPath>
-    <Enabled type="i" default="1" min="0" max="1">0</Enabled>
+    <LogFlash>
+      <Path type="s" default=".">.</Path>
+      <Enabled type="i" min="0" max="1" default="1">1</Enabled>
+    </LogFlash>
   </Logging>
 </Settings>
