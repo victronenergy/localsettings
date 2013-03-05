@@ -24,6 +24,8 @@
 # Example 4: <LogPath type="s" default=".">.</LogPath>
 # Settings or a group of settings can be set to default. A setting (and group) can be
 # added by means of dbus. And of course a setting can be changed by means of dbus.
+# By means of the file settingchanges.xml settings can be added or deleted. This file
+# is processed at startup and then deleted.
 
 
 # Python imports
@@ -31,7 +33,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
 from gobject import timeout_add, source_remove, MainLoop
-from os import system, path, getpid
+from os import system, path, getpid, remove
 import sys
 import signal
 from lxml import etree
@@ -87,7 +89,7 @@ timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 5 # Timeout value in seconds.
 execPath = ''
 fileSettings = 'settings.xml'
-fileAddSettings = 'addsettings.xml'
+fileSettingChanges = 'settingchanges.xml'
 
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
@@ -319,13 +321,14 @@ def convertToType(type, value):
 # @param file The filename (path can be included, e.g. /home/root/localsettings/settings.xml).
 # @param dictonaryItems The dictonary for the settings.
 # @param arrayGroups The array for the groups.
-def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
+# @param filter A filter used for filtering in settingchanges.xml for example "Add".
+def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups, filter):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
 	tracing.log.debug('parseXmlFileToDictonary %s:' % file)
 	tracing.log.debug(etree.tostring(root))
-	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups)
+	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups, filter)
 
 ## Method for parsing a xml-element to a dbus-object-path.
 # The dbus-object-path can be a setting (contains a text-value) or 
@@ -334,20 +337,28 @@ def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups):
 # @param path The path of the element.
 # @param dictonaryItems The dictonary for the settings.
 # @param arrayGroups The array for the groups.
-def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups):
+# @param filter A filter used for filtering in settingchanges.xml for example "Add".
+def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
 	if path != '/':
 		path += '/'
 	path += element.tag
 	for child in element:
-		parseXmlToDictonary(child, path, dictonaryItems, arrayGroups)
+		parseXmlToDictonary(child, path, dictonaryItems, arrayGroups, filter)
 
-	if element.text:
-		elementType = element.attrib[TYPE]
-		value = convertToType(elementType, element.text)
-		dictonaryItems[path] = [value, element.attrib]
-	elif arrayGroups != None:
-		if not path in arrayGroups:
-			arrayGroups.append(path)
+	if filter == None or path.startswith(filter) == True:
+		if filter != None:
+			objectPath = path.replace(filter, '')
+			if objectPath == '':
+				return
+		else:
+			objectPath = path
+		if element.text:
+			elementType = element.attrib[TYPE]
+			value = convertToType(elementType, element.text)
+			dictonaryItems[objectPath] = [value, element.attrib]
+		elif arrayGroups != None:
+			if not objectPath in arrayGroups:
+				arrayGroups.append(objectPath)
 
 ## Method for parsing a dictonary to a giving xml-file.
 # The dictonary must be in following format {dbus-object-path, [value, {attributes}]}.
@@ -397,7 +408,7 @@ def run():
 	global settings
 	global execPath
 	global fileSettings
-	global fileAddSettings
+	global fileSettingChanges
 	global groups
 	global busName
 
@@ -406,7 +417,7 @@ def run():
 	# get the exec path
 	execPath = path.dirname(sys.argv[0]) + '/'
 	fileSettings = execPath + fileSettings
-	fileAddSettings = execPath + fileAddSettings
+	fileSettingChanges = execPath + fileSettingChanges
 
 	# setup debug traces.
 	tracing.setupDebugTraces(execPath)
@@ -427,30 +438,54 @@ def run():
 	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
 
 	# read the settings.xml
-	parseXmlFileToDictonary(fileSettings, settings, groups)
+	parseXmlFileToDictonary(fileSettings, settings, groups, None)
 	tracing.log.debug('settings:')
 	tracing.log.debug(settings.items())
 	tracing.log.debug('groups:')
 	tracing.log.debug(groups)
 
-	# check if new settings must be added
-	if path.isfile(fileAddSettings):
+	# check if new settings must be changed
+	if path.isfile(fileSettingChanges):
+		# process the settings which must be added.
 		addSettings = {}
-		parseXmlFileToDictonary(fileAddSettings, addSettings, None)
-		tracing.log.debug('addsettings:')
+		addGroups = []
+		parseXmlFileToDictonary(fileSettingChanges, addSettings, addGroups, "/Change/Add")
+		tracing.log.debug('setting to add:')
 		tracing.log.debug(addSettings.items())
+		tracing.log.debug('groups to add:')
+		tracing.log.debug(addGroups)
 		saveChanges = False
 		for item in addSettings:
 			if not item in settings:
 				settings[item] = addSettings[item]
 				saveChanges = True
+		for item in addGroups:
+			if not item in groups:
+				groups.append(item)
+				saveChanges = True
+		
+		# process the settings which must be deleted.
+		delSettings = {}
+		parseXmlFileToDictonary(fileSettingChanges, delSettings, None, "/Change/Delete")
+		tracing.log.debug('setting to delete:')
+		tracing.log.debug(delSettings.items())
+		for item in delSettings:
+			if item in settings:
+				del settings[item]
+				saveChanges = True
+
 		if saveChanges == True:
-			tracing.log.info('Added new settings')
+			tracing.log.info('Change settings according to %s' % fileSettingChanges)
 			parseDictonaryToXmlFile(settings, fileSettings)
+			# update settings and groups from file.
+			settings = {}
+			groups = []
+			parseXmlFileToDictonary(fileSettings, settings, groups, None)
 			tracing.log.debug('settings:')
 			tracing.log.debug(settings.items())
 			tracing.log.debug('groups:')
 			tracing.log.debug(groups)
+			remove(fileSettingChanges)
 
 	# get on the bus
 	if isHostPC():
