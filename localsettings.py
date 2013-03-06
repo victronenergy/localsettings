@@ -352,9 +352,12 @@ def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
 				return
 		else:
 			objectPath = path
-		if element.text:
+		if element.get('type') != None:
 			elementType = element.attrib[TYPE]
-			value = convertToType(elementType, element.text)
+			text = element.text
+			if not element.text:
+				text = ''
+			value = convertToType(elementType, text)
 			dictonaryItems[objectPath] = [value, element.attrib]
 		elif arrayGroups != None:
 			if not objectPath in arrayGroups:
@@ -446,24 +449,6 @@ def run():
 
 	# check if new settings must be changed
 	if path.isfile(fileSettingChanges):
-		# process the settings which must be added.
-		addSettings = {}
-		addGroups = []
-		parseXmlFileToDictonary(fileSettingChanges, addSettings, addGroups, "/Change/Add")
-		tracing.log.debug('setting to add:')
-		tracing.log.debug(addSettings.items())
-		tracing.log.debug('groups to add:')
-		tracing.log.debug(addGroups)
-		saveChanges = False
-		for item in addSettings:
-			if not item in settings:
-				settings[item] = addSettings[item]
-				saveChanges = True
-		for item in addGroups:
-			if not item in groups:
-				groups.append(item)
-				saveChanges = True
-		
 		# process the settings which must be deleted.
 		delSettings = {}
 		parseXmlFileToDictonary(fileSettingChanges, delSettings, None, "/Change/Delete")
@@ -471,7 +456,20 @@ def run():
 		tracing.log.debug(delSettings.items())
 		for item in delSettings:
 			if item in settings:
+				tracing.log.debug('delete item %s' % item)
 				del settings[item]
+				saveChanges = True
+
+		# process the settings which must be added.
+		addSettings = {}
+		parseXmlFileToDictonary(fileSettingChanges, addSettings, None, "/Change/Add")
+		tracing.log.debug('setting to add:')
+		tracing.log.debug(addSettings.items())
+		saveChanges = False
+		for item in addSettings:
+			if not item in settings:
+				tracing.log.debug('add item %s' % item)
+				settings[item] = addSettings[item]
 				saveChanges = True
 
 		if saveChanges == True:

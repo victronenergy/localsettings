@@ -1,21 +1,21 @@
 <!-- Example of a add and delete settings.
 <Change>
-	<Add>
-		<Settings>
-			<Logging>
-				<Enabled type="i" default="1" min="0" max="1">0</Enabled>
-			</Logging>
-			<TestGroup>
-				<TestA type="s" default="Test">Test</TestA>
-			</TestGroup>
-		</Settings>
-	</Add>
-	<Delete>
-		<Settings>
-			<Test>
-				<Test1 type="s" default="Test">Test</Test1>
-			</Test>
-		</Settings>
-	</Delete>
+  <Delete>
+    <Settings>
+      <Test>
+        <Test1 type="s" default="Test">Test</Test1>
+      </Test>
+    </Settings>
+  </Delete>
+  <Add>
+    <Settings>
+      <Logging>
+        <Enabled type="i" default="1" min="0" max="1">0</Enabled>
+      </Logging>
+      <TestGroup>
+        <TestA type="s" default="Test">Test</TestA>
+      </TestGroup>
+    </Settings>
+  </Add>
 </Change>
 -->
