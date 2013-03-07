@@ -19,7 +19,7 @@ def setupDebugTraces(path):
 	log.disabled = False
 	sth = logging.StreamHandler()
 	sth.setLevel(level)
-	log.addHandler(sth)
+	#log.addHandler(sth)
 	fd = logging.handlers.RotatingFileHandler(path + 'traces_settings.txt', maxBytes=1048576, backupCount=5)
 	fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 	fd.setFormatter(fmt)
