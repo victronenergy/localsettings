@@ -171,16 +171,21 @@ class MyDbusObject(dbus.service.Object):
 		else:
 			return -1
 
-	## Dbus signal for value changed.
-	# Also sets the value and starts the time-out for saving to the settings-xml-file.
+	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
-	@dbus.service.signal(InterfaceBusItem, signature = 'v')
 	def _setValue(self, value):
 		global settings
 
 		tracing.log.info('_setValue %s %s' % (self._object_path, value))
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
+		text = self.GetText()
+		change = {'Value':value, 'Text':text}
+		self.PropertiesChanged(change)
+
+	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
+	def PropertiesChanged(self, changes):
+		tracing.log.debug('signal PropertiesChanged')
 
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
@@ -189,7 +194,7 @@ class MyDbusObject(dbus.service.Object):
 		global timeoutSaveSettingsEventId
 		global timeoutSaveSettingsTime
 
-		if timeoutSaveSettingsEventId:
+		if timeoutSaveSettingsEventId is None:
 			source_remove(timeoutSaveSettingsEventId)
 			timeoutSaveSettingsEventId = None
 		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettingsCallback)
