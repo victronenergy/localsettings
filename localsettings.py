@@ -37,6 +37,7 @@ from os import system, path, getpid, remove
 import sys
 import signal
 from lxml import etree
+import getopt
 
 # Local imports
 import tracing
@@ -50,11 +51,12 @@ FIRMWARE_VERSION_MINOR = 0x01
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
 ## Traces (info / debug) setup
-tracingEnabled = False
 pathTraces = '/var/log/'
-traceToConsol = False
-traceToFile = False
 traceFileName = 'localsettingstraces'
+tracingEnabled = False
+traceToConsole = False
+traceToFile = False
+traceDebugOn = False
 
 ## The dbus bus and bus-name.
 bus = None
@@ -433,6 +435,7 @@ def run():
 	global traceToConsole
 	global traceToFile
 	global traceFileName
+	global traceDebugOn
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -441,7 +444,7 @@ def run():
 	fileSettingChanges = pathSettings + fileSettingChanges
 
 	# setup debug traces.
-	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile)
+	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
 	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	# Print the logscript version
@@ -516,4 +519,37 @@ def run():
 
 	MainLoop().run()
 
-run()
+def usage():
+	print("Usage: ./localsettings [OPTION]")
+	print("-h\tdisplay this help and exit")
+	print("-v\tenable tracing to console (standard off)")
+	print("-f\tenable tracing to file (standard off)")
+	print("-d\tset tracing level to debug (standard info)")
+	
+def main(argv):
+	global tracingEnabled
+	global traceToConsole
+	global traceToFile
+	global traceDebugOn
+	
+	try:
+		opts, args = getopt.getopt(argv, "hvfd")
+	except getopt.GetoptError:
+		usage()
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt == '-h':
+			usage()
+			sys.exit()
+		elif opt == '-v':
+			tracingEnabled = True
+			traceToConsole = True
+		elif opt == '-f':
+			tracingEnabled = True
+			traceToFile = True
+		elif opt == '-d':
+			traceDebugOn = True
+
+	run()
+	
+main(sys.argv[1:])
