@@ -491,12 +491,8 @@ def run():
 			remove(fileSettingChanges)
 
 	# get on the bus
-	if isHostPC():
-		bus = dbus.SessionBus()
-		tracing.log.debug('SessionBus')
-	else:
-		bus = dbus.SystemBus()
-		tracing.log.debug('SystemBus')
+	bus = dbus.SystemBus()
+	tracing.log.debug('SystemBus')
 	busName = dbus.service.BusName(dbusName, bus)
 	for setting in settings:
 		myDbusObject = MyDbusObject(busName, setting)
