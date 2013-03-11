@@ -49,8 +49,12 @@ FIRMWARE_VERSION_MINOR = 0x01
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
-## If tracing is enabled.
+## Traces (info / debug) setup
 tracingEnabled = False
+pathTraces = '/var/log/'
+traceToConsol = False
+traceToFile = False
+traceFileName = 'localsettingstraces'
 
 ## The dbus bus and bus-name.
 bus = None
@@ -89,7 +93,6 @@ myDbusGroupServices = []
 ## File related stuff.
 timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 5 # Timeout value in seconds.
-execPath = ''
 fileSettings = 'settings.xml'
 fileSettingChanges = 'settingchanges.xml'
 
@@ -200,7 +203,7 @@ class MyDbusObject(dbus.service.Object):
 		global timeoutSaveSettingsEventId
 		global timeoutSaveSettingsTime
 
-		if timeoutSaveSettingsEventId is None:
+		if timeoutSaveSettingsEventId is not None:
 			source_remove(timeoutSaveSettingsEventId)
 			timeoutSaveSettingsEventId = None
 		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettingsCallback)
@@ -420,12 +423,16 @@ def run():
 	global myDbusServices
 	global myDbusGroupServices
 	global settings
-	global execPath
+	global pathSettings
 	global fileSettings
 	global fileSettingChanges
 	global groups
 	global busName
+	global tracingEnabled
 	global pathTraces
+	global traceToConsole
+	global traceToFile
+	global traceFileName
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -434,7 +441,7 @@ def run():
 	fileSettingChanges = pathSettings + fileSettingChanges
 
 	# setup debug traces.
-	tracing.setupTraces(tracingEnabled, pathTraces, 'localsettingslog', False, False)
+	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile)
 	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	# Print the logscript version
