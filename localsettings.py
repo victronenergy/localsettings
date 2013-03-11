@@ -39,7 +39,6 @@ import signal
 from lxml import etree
 
 # Local imports
-from host import isHostPC
 import tracing
 import platform
 
@@ -49,6 +48,9 @@ FIRMWARE_VERSION_MAJOR = 0x00
 FIRMWARE_VERSION_MINOR = 0x01
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
+
+## If tracing is enabled.
+tracingEnabled = False
 
 ## The dbus bus and bus-name.
 bus = None
@@ -90,6 +92,10 @@ timeoutSaveSettingsTime = 5 # Timeout value in seconds.
 execPath = ''
 fileSettings = 'settings.xml'
 fileSettingChanges = 'settingchanges.xml'
+
+## Path(s) definitions.
+pathSettings = '/conf/' 
+pathTraces = '/var/log/'
 
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
@@ -419,17 +425,17 @@ def run():
 	global fileSettingChanges
 	global groups
 	global busName
+	global pathTraces
 
 	DBusGMainLoop(set_as_default=True)
 
 	# get the exec path
-	execPath = path.dirname(sys.argv[0]) + '/'
-	fileSettings = execPath + fileSettings
-	fileSettingChanges = execPath + fileSettingChanges
+	fileSettings = pathSettings + fileSettings
+	fileSettingChanges = pathSettings + fileSettingChanges
 
 	# setup debug traces.
-	tracing.setupDebugTraces(execPath)
-	tracing.log.debug('tracingPath = %s' % execPath)
+	tracing.setupTraces(tracingEnabled, pathTraces, 'localsettingslog', False, False)
+	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	# Print the logscript version
 	tracing.log.info('Localsettings version is: 0x%04x' % version)
