@@ -551,11 +551,12 @@ def run():
 
 def usage():
 	print("Usage: ./localsettings [OPTION]")
-	print("-h\tdisplay this help and exit")
-	print("-v\tenable tracing to console (standard off)")
-	print("-f\tenable tracing to file (standard off)")
-	print("-d\tset tracing level to debug (standard info)")
-	
+	print("-h, --help\tdisplay this help and exit")
+	print("-c\t\tenable tracing to console (standard off)")
+	print("-t\t\tenable tracing to file (standard off)")
+	print("-d\t\tset tracing level to debug (standard info)")
+	print("-v, --version\treturns the program version")
+
 def main(argv):
 	global tracingEnabled
 	global traceToConsole
@@ -563,22 +564,25 @@ def main(argv):
 	global traceDebugOn
 	
 	try:
-		opts, args = getopt.getopt(argv, "hvfd")
+		opts, args = getopt.getopt(argv, "vhctd", ["help", "version"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(2)
 	for opt, arg in opts:
-		if opt == '-h':
+		if opt == '-h' or opt == '--help':
 			usage()
 			sys.exit()
-		elif opt == '-v':
+		elif opt == '-c':
 			tracingEnabled = True
 			traceToConsole = True
-		elif opt == '-f':
+		elif opt == '-t':
 			tracingEnabled = True
 			traceToFile = True
 		elif opt == '-d':
 			traceDebugOn = True
+		elif opt == '-v' or opt == '--version':
+			print(version)
+			sys.exit()
 
 	run()
 	
