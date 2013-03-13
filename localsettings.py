@@ -371,6 +371,9 @@ def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups, filter):
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
 	tracing.log.debug('parseXmlFileToDictonary %s:' % file)
+	docinfo = tree.docinfo
+	tracing.log.debug("docinfo version %s" % docinfo.xml_version)
+	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
 	tracing.log.debug(etree.tostring(root))
 	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups, filter)
 
@@ -419,7 +422,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 		items.remove('')
 		if root == None:
 			root = etree.Element(items[0])
-			doc = etree.ElementTree(root)
+			tree = etree.ElementTree(root)
 		items.remove(root.tag)
 		elem = root
 		for item in items:
@@ -432,7 +435,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 		attributes = dictonary[key][ATTRIB]
 		for attribute, value in attributes.iteritems():
 			elem.set(attribute, str(value))
-	doc.write(file, pretty_print = True)
+	tree.write(file, encoding = 'UTF-8', pretty_print = True, xml_declaration = True)
 
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
 #
