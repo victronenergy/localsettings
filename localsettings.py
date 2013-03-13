@@ -92,15 +92,23 @@ supportedTypes = {
 myDbusServices = []
 myDbusGroupServices = []
 
-## File related stuff.
+## The main group dbus-service.
+myDbusMainGroupService = None
+
+## Save settings timeout.
 timeoutSaveSettingsEventId = None
-timeoutSaveSettingsTime = 5 # Timeout value in seconds.
+timeoutSaveSettingsTime = 2 # Timeout value in seconds.
+
+## File names.
 fileSettings = 'settings.xml'
 fileSettingChanges = 'settingchanges.xml'
 
 ## Path(s) definitions.
 pathSettings = '/conf/' 
 pathTraces = '/var/log/'
+
+## Indicates if settings are added
+settingsAdded = False
 
 class MyDbusObject(dbus.service.Object):
 	global InterfaceBusItem
@@ -198,6 +206,10 @@ class MyDbusObject(dbus.service.Object):
 	def PropertiesChanged(self, changes):
 		tracing.log.debug('signal PropertiesChanged')
 
+	@dbus.service.signal(InterfaceSettings, signature = '')
+	def ObjectPathsChanged(self):
+		tracing.log.debug('signal ObjectPathsChanged')
+
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
 	# the settings-xml-file is saved.
@@ -270,11 +282,18 @@ class MyDbusObject(dbus.service.Object):
 		global busName
 		global myDbusGroupServices
 		global myDbusServices
+		global settingsAdded
 
 		okToSave = False
 		if self._object_path in groups:
-			groupPath = self._object_path + '/' + str(group)
-			itemPath = groupPath + '/' + str(name)
+			if group.startswith('/'):
+				groupPath = self._object_path + str(group)
+			else:
+				groupPath = self._object_path + '/' + str(group)
+			if name.startswith('/'):
+				itemPath = groupPath + str(name)
+			else:
+				itemPath = groupPath + '/' + str(name)
 			if not itemPath in settings:
 				if itemType in supportedTypes:
 					try:
@@ -291,18 +310,22 @@ class MyDbusObject(dbus.service.Object):
 					except:
 						okToSave = False
 		if okToSave == True:
+			try:
+				myDbusObject = MyDbusObject(busName, itemPath)
+				myDbusServices.append(myDbusObject)
+				if not groupPath in groups:
+					groups.append(groupPath)
+					myDbusObject = MyDbusObject(busName, groupPath)
+					myDbusGroupServices.append(myDbusObject)
+			except:
+				return -1
 			settings[itemPath] = [0, {}]
 			settings[itemPath][VALUE] = value
 			settings[itemPath][ATTRIB] = attributes
-			if not groupPath in groups:
-				groups.append(groupPath)
-				myDbusObject = MyDbusObject(busName, groupPath)
-				myDbusGroupServices.append(myDbusObject)
-			myDbusObject = MyDbusObject(busName, itemPath)
-			myDbusServices.append(myDbusObject)
 			tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
 			tracing.log.debug(settings.items())
 			tracing.log.debug(groups)
+			settingsAdded = True
 			self._startTimeoutSaveSettings()
 			return 0
 		else:
@@ -314,11 +337,16 @@ def saveSettingsCallback():
 	global timeoutSaveSettingsEventId
 	global settings
 	global fileSettings
+	global myDbusMainGroupService
+	global settingsAdded
 
 	tracing.log.info('saveSettingsCallback')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
 	parseDictonaryToXmlFile(settings, fileSettings)
+	if settingsAdded is True:
+		settingsAdded = False
+		myDbusMainGroupService.ObjectPathsChanged()
 
 ## Method for converting a value the the given type.
 # When the type is not supported it simply returns the value as is.
@@ -436,6 +464,7 @@ def run():
 	global traceToFile
 	global traceFileName
 	global traceDebugOn
+	global myDbusMainGroupService
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -516,6 +545,7 @@ def run():
 	for group in groups:
 		myDbusObject = MyDbusObject(busName, group)
 		myDbusGroupServices.append(myDbusObject)
+	myDbusMainGroupService = myDbusGroupServices[0]
 
 	MainLoop().run()
 
