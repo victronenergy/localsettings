@@ -374,6 +374,7 @@ def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups, filter):
 	docinfo = tree.docinfo
 	tracing.log.debug("docinfo version %s" % docinfo.xml_version)
 	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
+	tracing.log.debug("settings version %s" % root.attrib)
 	tracing.log.debug(etree.tostring(root))
 	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups, filter)
 
@@ -422,6 +423,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 		items.remove('')
 		if root == None:
 			root = etree.Element(items[0])
+			root.set('version', '1.0')
 			tree = etree.ElementTree(root)
 		items.remove(root.tag)
 		elem = root
