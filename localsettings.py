@@ -38,6 +38,7 @@ import sys
 import signal
 from lxml import etree
 import getopt
+import errno
 
 # Local imports
 import tracing
@@ -107,6 +108,12 @@ fileSettingChanges = 'settingchanges.xml'
 pathSettings = '/conf/' 
 pathTraces = '/var/log/'
 
+## Settings file version tag, encoding and root-element.
+settingsTag = 'version'
+settingsVersion = '1.0'
+settingsEncoding = 'UTF-8'
+settingsRootElement = 'Settings'
+
 ## Indicates if settings are added
 settingsAdded = False
 
@@ -140,6 +147,8 @@ class MyDbusObject(dbus.service.Object):
 	def GetValue(self):
 		global settings
 		global groups
+		
+		tracing.log.debug('GetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		return settings[self._object_path][VALUE]
@@ -151,6 +160,8 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
 		global settings
+
+		tracing.log.debug('GetText %s' % self._object_path)
 		if self._object_path in groups:
 			return ''
 		return str(settings[self._object_path][VALUE])
@@ -165,6 +176,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global supportedTypes
 		
+		tracing.log.debug('SetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		okToSave = True
@@ -228,6 +240,8 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
 		global settings
+		
+		tracing.log.debug('GetDefault %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
@@ -248,6 +262,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settings
 		
+		tracing.log.debug('SetDefault %s' % self._object_path)
 		try:
 			path = self._object_path
 			if path in groups:
@@ -284,6 +299,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settingsAdded
 
+		tracing.log.debug('AddSetting %s' % self._object_path)
 		okToSave = False
 		if self._object_path in groups:
 			if group.startswith('/'):
@@ -423,7 +439,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 		items.remove('')
 		if root == None:
 			root = etree.Element(items[0])
-			root.set('version', '1.0')
+			root.set(settingsTag, settingsVersion)
 			tree = etree.ElementTree(root)
 		items.remove(root.tag)
 		elem = root
@@ -437,7 +453,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 		attributes = dictonary[key][ATTRIB]
 		for attribute, value in attributes.iteritems():
 			elem.set(attribute, str(value))
-	tree.write(file, encoding = 'UTF-8', pretty_print = True, xml_declaration = True)
+	tree.write(file, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
 
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
 #
@@ -473,10 +489,10 @@ def run():
 
 	DBusGMainLoop(set_as_default=True)
 
-	# get the exec path
+	# set the settings path
 	fileSettings = pathSettings + fileSettings
 	fileSettingChanges = pathSettings + fileSettingChanges
-
+	
 	# setup debug traces.
 	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
 	tracing.log.debug('tracingPath = %s' % pathTraces)
@@ -494,6 +510,19 @@ def run():
 	signal.signal(signal.SIGINT, handlerSignals) # 2: Ctrl-C
 	signal.signal(signal.SIGUSR1, handlerSignals) # 10: kill -USR1 <logscript-pid>
 	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
+
+	if not path.isdir(pathSettings):
+		print('Error path %s does not exist!' % pathSettings)
+		sys.exit(errno.ENOENT)
+
+	# check if settings file is present, if not exit create a "empty" settings file.
+	if not path.isfile(fileSettings):
+		tracing.log.info('Settingsfile %s not found' % fileSettings)
+		root = etree.Element(settingsRootElement)
+		root.set(settingsTag, settingsVersion)
+		tree = etree.ElementTree(root)
+		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+		tracing.log.info('Created settingsfile %s' % fileSettings)
 
 	# read the settings.xml
 	parseXmlFileToDictonary(fileSettings, settings, groups, None)
@@ -572,7 +601,7 @@ def main(argv):
 		opts, args = getopt.getopt(argv, "vhctd", ["help", "version"])
 	except getopt.GetoptError:
 		usage()
-		sys.exit(2)
+		sys.exit(errno.EINVAL)
 	for opt, arg in opts:
 		if opt == '-h' or opt == '--help':
 			usage()
