@@ -112,7 +112,7 @@ pathTraces = '/var/log/'
 settingsTag = 'version'
 settingsVersion = '1.0'
 settingsEncoding = 'UTF-8'
-settingsRootElement = 'Settings'
+settingsRootName = 'Settings'
 
 ## Indicates if settings are added
 settingsAdded = False
@@ -515,10 +515,21 @@ def run():
 		print('Error path %s does not exist!' % pathSettings)
 		sys.exit(errno.ENOENT)
 
+	if path.isfile(fileSettings):
+		try:
+			tree = etree.parse(fileSettings)
+			root = tree.getroot()
+			tracing.log.debug('Settingsfile %s validated' % fileSettings)
+		except:
+			tracing.log.info('Settingsfile %s invalid' % fileSettings)
+			remove(fileSettings)
+			tracing.log.info('%s removed' % fileSettings)
+
+
 	# check if settings file is present, if not exit create a "empty" settings file.
 	if not path.isfile(fileSettings):
 		tracing.log.info('Settingsfile %s not found' % fileSettings)
-		root = etree.Element(settingsRootElement)
+		root = etree.Element(settingsRootName)
 		root.set(settingsTag, settingsVersion)
 		tree = etree.ElementTree(root)
 		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
