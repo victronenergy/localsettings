@@ -302,7 +302,7 @@ class MyDbusObject(dbus.service.Object):
 		tracing.log.debug('AddSetting %s' % self._object_path)
 		okToSave = False
 		if self._object_path in groups:
-			if group.startswith('/'):
+			if group.startswith('/') or group == '':
 				groupPath = self._object_path + str(group)
 			else:
 				groupPath = self._object_path + '/' + str(group)
