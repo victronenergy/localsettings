@@ -1,8 +1,6 @@
-# Makefile: A standard Makefile for hello.c
+PY:=/usr/bin/python2.7
 
-PY=/usr/bin/python2.7
-
-all: localsettings.pyo host.pyo tracing.pyo
+all: localsettings.pyo
 
 %.pyo: %.py $(DEPS)
 	${PY} -O -m py_compile $<
@@ -10,7 +8,7 @@ all: localsettings.pyo host.pyo tracing.pyo
 clean:
 	rm -f *.py? 
 
-install: localsettings.pyo host.pyo tracing.pyo
-	install -d ${DESTDIR}/${BINDIR}
-	install -m 0755 $^ ${DESTDIR}/${BINDIR}/
-	install -m 0755 localsettings ${DESTDIR}/${BINDIR}/
+install: localsettings.pyo
+	install -d ${DESTDIR}
+	install -m 0755 $^ ${DESTDIR}
+	install -m 0755 start ${DESTDIR}
