@@ -1,0 +1,5 @@
+#!/bin/sh
+PREV=/usr/bin
+PY="$PREV/python2.7"
+
+$PY $PREV/localsettings.pyo
