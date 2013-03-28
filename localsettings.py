@@ -52,7 +52,7 @@ FIRMWARE_VERSION_MINOR = 0x01
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
 ## Traces (info / debug) setup
-pathTraces = '/var/log/'
+pathTraces = '/log/'
 traceFileName = 'localsettingstraces'
 tracingEnabled = False
 traceToConsole = False
@@ -106,7 +106,6 @@ fileSettingChanges = 'settingchanges.xml'
 
 ## Path(s) definitions.
 pathSettings = '/conf/' 
-pathTraces = '/var/log/'
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
