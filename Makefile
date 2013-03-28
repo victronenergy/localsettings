@@ -11,4 +11,4 @@ clean:
 install: localsettings.pyo
 	install -d ${DESTDIR}
 	install -m 0755 $^ ${DESTDIR}
-	install -m 0755 start ${DESTDIR}
+
