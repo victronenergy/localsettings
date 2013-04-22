@@ -33,7 +33,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
 from gobject import timeout_add, source_remove, MainLoop
-from os import system, path, getpid, remove
+from os import path, getpid, remove, rename
 import sys
 import signal
 from lxml import etree
@@ -47,7 +47,7 @@ import platform
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x01
+FIRMWARE_VERSION_MINOR = 0x02
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
@@ -103,6 +103,8 @@ timeoutSaveSettingsTime = 2 # Timeout value in seconds.
 ## File names.
 fileSettings = 'settings.xml'
 fileSettingChanges = 'settingchanges.xml'
+newFileExtension = '.new'
+newFileSettings = fileSettings + newFileExtension
 
 ## Path(s) definitions.
 pathSettings = '/conf/' 
@@ -452,7 +454,12 @@ def parseDictonaryToXmlFile(dictonary, file):
 		attributes = dictonary[key][ATTRIB]
 		for attribute, value in attributes.iteritems():
 			elem.set(attribute, str(value))
-	tree.write(file, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+	newFile = file + newFileExtension
+	tree.write(newFile, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+	try:
+		rename(newFile, file)
+	except:
+		tracing.log.info('renaming new file to settings file failed')
 
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
 #
@@ -476,6 +483,7 @@ def run():
 	global pathSettings
 	global fileSettings
 	global fileSettingChanges
+	global newFileSettings
 	global groups
 	global busName
 	global tracingEnabled
@@ -491,6 +499,7 @@ def run():
 	# set the settings path
 	fileSettings = pathSettings + fileSettings
 	fileSettingChanges = pathSettings + fileSettingChanges
+	newFileSettings = pathSettings + newFileSettings
 	
 	# setup debug traces.
 	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
@@ -514,25 +523,38 @@ def run():
 		print('Error path %s does not exist!' % pathSettings)
 		sys.exit(errno.ENOENT)
 
+	if path.isfile(newFileSettings):
+		tracing.log.info('New settings file exist')
+		try:
+			tree = etree.parse(newFileSettings)
+			root = tree.getroot()
+			tracing.log.info('New settings file %s validated' % newFileSettings)
+			rename(newFileSettings, fileSettings)
+			tracing.log.info('renamed new settings file to settings file')
+		except:
+			tracing.log.info('New settings file %s invalid' % newFileSettings)
+			remove(newFileSettings)
+			tracing.log.info('%s removed' % newFileSettings)
+
 	if path.isfile(fileSettings):
+		# Try to validate the settings file.
 		try:
 			tree = etree.parse(fileSettings)
 			root = tree.getroot()
-			tracing.log.debug('Settingsfile %s validated' % fileSettings)
+			tracing.log.info('Settings file %s validated' % fileSettings)
 		except:
-			tracing.log.info('Settingsfile %s invalid' % fileSettings)
+			tracing.log.info('Settings file %s invalid' % fileSettings)
 			remove(fileSettings)
 			tracing.log.info('%s removed' % fileSettings)
 
-
 	# check if settings file is present, if not exit create a "empty" settings file.
 	if not path.isfile(fileSettings):
-		tracing.log.info('Settingsfile %s not found' % fileSettings)
+		tracing.log.info('Settings file %s not found' % fileSettings)
 		root = etree.Element(settingsRootName)
 		root.set(settingsTag, settingsVersion)
 		tree = etree.ElementTree(root)
 		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
-		tracing.log.info('Created settingsfile %s' % fileSettings)
+		tracing.log.info('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
 	parseXmlFileToDictonary(fileSettings, settings, groups, None)
