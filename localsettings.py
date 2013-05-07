@@ -47,7 +47,7 @@ import platform
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x02
+FIRMWARE_VERSION_MINOR = 0x03
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
@@ -149,7 +149,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global groups
 		
-		tracing.log.debug('GetValue %s' % self._object_path)
+		tracing.log.info('GetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		return settings[self._object_path][VALUE]
@@ -162,7 +162,7 @@ class MyDbusObject(dbus.service.Object):
 	def GetText(self):
 		global settings
 
-		tracing.log.debug('GetText %s' % self._object_path)
+		tracing.log.info('GetText %s' % self._object_path)
 		if self._object_path in groups:
 			return ''
 		return str(settings[self._object_path][VALUE])
@@ -177,7 +177,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global supportedTypes
 		
-		tracing.log.debug('SetValue %s' % self._object_path)
+		tracing.log.info('SetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		okToSave = True
@@ -242,7 +242,7 @@ class MyDbusObject(dbus.service.Object):
 	def GetDefault(self):
 		global settings
 		
-		tracing.log.debug('GetDefault %s' % self._object_path)
+		tracing.log.info('GetDefault %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
@@ -263,7 +263,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settings
 		
-		tracing.log.debug('SetDefault %s' % self._object_path)
+		tracing.log.info('SetDefault %s' % self._object_path)
 		try:
 			path = self._object_path
 			if path in groups:
@@ -300,7 +300,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settingsAdded
 
-		tracing.log.debug('AddSetting %s' % self._object_path)
+		tracing.log.info('AddSetting %s %s %s' % (self._object_path, group, name))
 		okToSave = False
 		if self._object_path in groups:
 			if group.startswith('/') or group == '':
@@ -318,7 +318,10 @@ class MyDbusObject(dbus.service.Object):
 						if type(value) != str:
 							min = convertToType(itemType, minimum)
 							max = convertToType(itemType, maximum)
-							if value >= min and value <= max:
+							if min is 0 and max is 0:
+								okToSave = True
+								attributes = {TYPE:str(itemType), DEFAULT:str(value)}
+							elif value >= min and value <= max:
 								okToSave = True
 								attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
 						else:
