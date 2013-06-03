@@ -223,7 +223,8 @@ class MyDbusObject(dbus.service.Object):
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
 		text = self.GetText()
-		change = {'Value':value, 'Text':text}
+		valid = self.GetValid()
+		change = {'Value':value, 'Text':text, 'Valid': valid}
 		self.PropertiesChanged(change)
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
