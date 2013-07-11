@@ -47,7 +47,7 @@ import platform
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x03
+FIRMWARE_VERSION_MINOR = 0x04
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
