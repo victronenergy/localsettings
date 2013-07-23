@@ -158,7 +158,7 @@ class MyDbusObject(dbus.service.Object):
 	# Returns if the value is valid of the dbus-object-path (the settings).
 	# When the object-path is a group a -1 is returned.
 	# @return setting A setting is valid or -1 (error)
-	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
+	@dbus.service.method(InterfaceBusItem, out_signature = 'b')
 	def GetValid(self):
 		tracing.log.info('GetValid %s' % self._object_path)
 		if self._object_path in groups:
