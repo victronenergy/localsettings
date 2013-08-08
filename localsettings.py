@@ -47,7 +47,7 @@ import platform
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x04
+FIRMWARE_VERSION_MINOR = 0x05
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
@@ -213,6 +213,20 @@ class MyDbusObject(dbus.service.Object):
 			return 0
 		else:
 			return -1
+
+	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
+	def GetMin(self):
+		if MIN in settings[self._object_path][ATTRIB]:
+			return settings[self._object_path][ATTRIB][MIN]
+		else:
+			return 0
+
+	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
+	def GetMax(self):
+		if MAX in settings[self._object_path][ATTRIB]:
+			return settings[self._object_path][ATTRIB][MAX]
+		else:
+			return 0
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
