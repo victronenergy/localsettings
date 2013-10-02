@@ -47,7 +47,7 @@ import platform
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x00
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x05
+FIRMWARE_VERSION_MINOR = 0x06
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
@@ -325,42 +325,53 @@ class MyDbusObject(dbus.service.Object):
 				itemPath = groupPath + str(name)
 			else:
 				itemPath = groupPath + '/' + str(name)
-			if not itemPath in settings:
-				if itemType in supportedTypes:
-					try:
-						value = convertToType(itemType, defaultValue)
-						if type(value) != str:
-							min = convertToType(itemType, minimum)
-							max = convertToType(itemType, maximum)
-							if min is 0 and max is 0:
-								okToSave = True
-								attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-							elif value >= min and value <= max:
-								okToSave = True
-								attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
-						else:
+			if itemType in supportedTypes:
+				try:
+					value = convertToType(itemType, defaultValue)
+					if type(value) != str:
+						min = convertToType(itemType, minimum)
+						max = convertToType(itemType, maximum)
+						if min is 0 and max is 0:
 							okToSave = True
 							attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-					except:
-						okToSave = False
+						elif value >= min and value <= max:
+							okToSave = True
+							attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
+					else:
+						okToSave = True
+						attributes = {TYPE:str(itemType), DEFAULT:str(value)}
+				except:
+					okToSave = False
 		if okToSave == True:
 			try:
-				myDbusObject = MyDbusObject(busName, itemPath)
-				myDbusServices.append(myDbusObject)
-				if not groupPath in groups:
-					groups.append(groupPath)
-					myDbusObject = MyDbusObject(busName, groupPath)
-					myDbusGroupServices.append(myDbusObject)
+				if not itemPath in settings:
+					myDbusObject = MyDbusObject(busName, itemPath)
+					myDbusServices.append(myDbusObject)
+					if not groupPath in groups:
+						groups.append(groupPath)
+						myDbusObject = MyDbusObject(busName, groupPath)
+						myDbusGroupServices.append(myDbusObject)
 			except:
 				return -1
-			settings[itemPath] = [0, {}]
-			settings[itemPath][VALUE] = value
-			settings[itemPath][ATTRIB] = attributes
-			tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
-			tracing.log.debug(settings.items())
-			tracing.log.debug(groups)
-			settingsAdded = True
-			self._startTimeoutSaveSettings()
+			changes = True
+			if itemPath in settings:
+				if settings[itemPath][ATTRIB][TYPE] == attributes[TYPE]:
+					unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
+					if len(unmatched) == 0:
+						# There are no changes
+						changes = False
+					else:
+						# There are changes, but keep current value.
+						value = settings[itemPath][VALUE]
+			if changes:
+				settings[itemPath] = [0, {}]
+				settings[itemPath][VALUE] = value
+				settings[itemPath][ATTRIB] = attributes
+				tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+				tracing.log.debug(settings.items())
+				tracing.log.debug(groups)
+				settingsAdded = True
+				self._startTimeoutSaveSettings()
 			return 0
 		else:
 			return -1
