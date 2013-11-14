@@ -16,7 +16,9 @@
 #	</Logging>
 # </Settings>
 # This will be parsed as an dbus-object-path /Settings/Logging/LogInterval.
+#
 # A setting can have different types. The types are s (string), i (integer) and f (float).
+#
 # A setting can have a minimum, a maximum and a default value.
 # These are set as an attribute of a (setting) element.
 # Example 2: <Brigthness type="i" min="0" max="100" default="100">100</Brigthness>
@@ -26,6 +28,18 @@
 # added by means of dbus. And of course a setting can be changed by means of dbus.
 # By means of the file settingchanges.xml settings can be added or deleted. This file
 # is processed at startup and then deleted.
+#
+# Typical implementation
+# 1) Always do an AddSetting in the start of your code. This will make sure the setting exists, and
+# will not overwrite an existing value. Set min and max to 0 to work without min and max.
+# dbus /Settings AddSetting GUI Brightness 100 i 0 100
+#
+# 2) Then read it:
+# dbus /Settings/GUI/Brightness GetValue
+#
+# 3) Or write it:
+# dbus /Settings/GUI/Brightness SetValue 50
+##  
 
 
 # Python imports
