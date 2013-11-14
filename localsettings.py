@@ -32,13 +32,13 @@
 # Typical implementation
 # 1) Always do an AddSetting in the start of your code. This will make sure the setting exists, and
 # will not overwrite an existing value. Set min and max to 0 to work without min and max.
-# dbus /Settings AddSetting GUI Brightness 100 i 0 100
+# dbus -y com.victronenergy.settings /Settings AddSetting GUI Brightness 100 i 0 100
 #
 # 2) Then read it:
-# dbus /Settings/GUI/Brightness GetValue
+# dbus -y com.victronenergy.settings /Settings/GUI/Brightness GetValue
 #
 # 3) Or write it:
-# dbus /Settings/GUI/Brightness SetValue 50
+# dbus -y com.victronenergy.settings /Settings/GUI/Brightness SetValue 50
 ##  
 
 
