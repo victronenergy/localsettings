@@ -279,7 +279,7 @@ class MyDbusObject(dbus.service.Object):
 			value = convertToType(type, settings[path][ATTRIB][DEFAULT])
 			return value
 		except:
-			tracing.log.info('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
+			tracing.log.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
 	## Dbus method SetDefault.
@@ -303,7 +303,7 @@ class MyDbusObject(dbus.service.Object):
 				self.SetValue(settings[path][ATTRIB][DEFAULT])
 			return 0
 		except:
-			tracing.log.info('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
+			tracing.log.error('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
 	## Dbus method AddSetting.
@@ -501,7 +501,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 	try:
 		rename(newFile, file)
 	except:
-		tracing.log.info('renaming new file to settings file failed')
+		tracing.log.error('renaming new file to settings file failed')
 
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
 #
@@ -509,7 +509,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 # @param signum the signal-number.
 # @param stack the call-stack.
 def handlerSignals(signum, stack):
-	tracing.log.info('handlerSignals received: %d' % signum)
+	tracing.log.warning('handlerSignals received: %d' % signum)
 	exitCode = 0
 	if signum == signal.SIGHUP:
 		exitCode = 1
@@ -574,9 +574,9 @@ def run():
 			rename(newFileSettings, fileSettings)
 			tracing.log.info('renamed new settings file to settings file')
 		except:
-			tracing.log.info('New settings file %s invalid' % newFileSettings)
+			tracing.log.error('New settings file %s invalid' % newFileSettings)
 			remove(newFileSettings)
-			tracing.log.info('%s removed' % newFileSettings)
+			tracing.log.error('%s removed' % newFileSettings)
 
 	if path.isfile(fileSettings):
 		# Try to validate the settings file.
@@ -585,18 +585,18 @@ def run():
 			root = tree.getroot()
 			tracing.log.info('Settings file %s validated' % fileSettings)
 		except:
-			tracing.log.info('Settings file %s invalid' % fileSettings)
+			tracing.log.error('Settings file %s invalid' % fileSettings)
 			remove(fileSettings)
-			tracing.log.info('%s removed' % fileSettings)
+			tracing.log.error('%s removed' % fileSettings)
 
 	# check if settings file is present, if not exit create a "empty" settings file.
 	if not path.isfile(fileSettings):
-		tracing.log.info('Settings file %s not found' % fileSettings)
+		tracing.log.warning('Settings file %s not found' % fileSettings)
 		root = etree.Element(settingsRootName)
 		root.set(settingsTag, settingsVersion)
 		tree = etree.ElementTree(root)
 		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
-		tracing.log.info('Created settings file %s' % fileSettings)
+		tracing.log.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
 	parseXmlFileToDictonary(fileSettings, settings, groups, None)
@@ -631,7 +631,7 @@ def run():
 				saveChanges = True
 
 		if saveChanges == True:
-			tracing.log.info('Change settings according to %s' % fileSettingChanges)
+			tracing.log.warning('Change settings according to %s' % fileSettingChanges)
 			parseDictonaryToXmlFile(settings, fileSettings)
 			# update settings and groups from file.
 			settings = {}
