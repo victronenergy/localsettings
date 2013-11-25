@@ -664,6 +664,7 @@ def usage():
 	print("-t\t\tenable tracing to file (standard off)")
 	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
+	print("--banner\tshows program-name and version at startup")
 
 def main(argv):
 	global tracingEnabled
@@ -672,7 +673,7 @@ def main(argv):
 	global traceDebugOn
 	
 	try:
-		opts, args = getopt.getopt(argv, "vhctd", ["help", "version"])
+		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(errno.EINVAL)
@@ -691,6 +692,8 @@ def main(argv):
 		elif opt == '-v' or opt == '--version':
 			print(version)
 			sys.exit()
+		elif opt == '--banner':
+			print("localsettings 0x%04x" % version)
 
 	run()
 	
