@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python -u
 
 ## @package localsettings
 # Dbus-service for local settings.
