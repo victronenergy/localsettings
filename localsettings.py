@@ -47,7 +47,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
 from gobject import timeout_add, source_remove, MainLoop
-from os import path, getpid, remove, rename
+from os import path, getpid, remove, rename, _exit
 import sys
 import signal
 from lxml import etree
@@ -645,7 +645,7 @@ def run():
 
 	# get on the bus
 	try:
-		bus = SystemBus()
+		bus = dbus.SystemBus()
 	except Exception, ex:
 		tracing.log.error("no dbus systembus")
 		_exit(0)
