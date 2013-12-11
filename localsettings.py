@@ -644,8 +644,11 @@ def run():
 			remove(fileSettingChanges)
 
 	# get on the bus
-	bus = dbus.SystemBus()
-	tracing.log.debug('SystemBus')
+	try:
+		bus = SystemBus()
+	except Exception, ex:
+		tracing.log.error("no dbus systembus")
+		_exit(0)
 	busName = dbus.service.BusName(dbusName, bus)
 	for setting in settings:
 		myDbusObject = MyDbusObject(busName, setting)
