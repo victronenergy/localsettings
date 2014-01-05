@@ -696,7 +696,7 @@ def main(argv):
 			print(version)
 			sys.exit()
 		elif opt == '--banner':
-			print("localsettings 0x%04x" % version)
+			print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
 	run()
 	
