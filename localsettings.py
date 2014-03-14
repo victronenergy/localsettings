@@ -39,6 +39,7 @@
 #
 # 3) Or write it:
 # dbus -y com.victronenergy.settings /Settings/GUI/Brightness SetValue 50
+
 ##  
 
 
@@ -163,7 +164,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global groups
 		
-		tracing.log.info('GetValue %s' % self._object_path)
+		tracing.log.debug('GetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		return settings[self._object_path][VALUE]
@@ -176,7 +177,6 @@ class MyDbusObject(dbus.service.Object):
 	def GetText(self):
 		global settings
 
-		tracing.log.info('GetText %s' % self._object_path)
 		if self._object_path in groups:
 			return ''
 		return str(settings[self._object_path][VALUE])
@@ -191,7 +191,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global supportedTypes
 		
-		tracing.log.info('SetValue %s' % self._object_path)
+		tracing.log.debug('SetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		okToSave = True
@@ -236,7 +236,7 @@ class MyDbusObject(dbus.service.Object):
 	def _setValue(self, value):
 		global settings
 
-		tracing.log.info('_setValue %s %s' % (self._object_path, value))
+		tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
 		text = self.GetText()
@@ -328,7 +328,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settingsAdded
 
-		tracing.log.info('AddSetting %s %s %s' % (self._object_path, group, name))
+		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 		okToSave = False
 		if self._object_path in groups:
 			if group.startswith('/') or group == '':
@@ -381,7 +381,7 @@ class MyDbusObject(dbus.service.Object):
 				settings[itemPath] = [0, {}]
 				settings[itemPath][VALUE] = value
 				settings[itemPath][ATTRIB] = attributes
-				tracing.log.info('Add %s %s %s %s %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+				tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
 				tracing.log.debug(settings.items())
 				tracing.log.debug(groups)
 				settingsAdded = True
@@ -399,7 +399,7 @@ def saveSettingsCallback():
 	global myDbusMainGroupService
 	global settingsAdded
 
-	tracing.log.info('saveSettingsCallback')
+	tracing.log.debug('Saving settings to file')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
 	parseDictonaryToXmlFile(settings, fileSettings)
@@ -643,13 +643,11 @@ def run():
 			tracing.log.debug(groups)
 			remove(fileSettingChanges)
 
-	# get on the bus
-	try:
-		bus = dbus.SystemBus()
-	except Exception, ex:
-		tracing.log.error("no dbus systembus")
-		_exit(0)
+	# For a PC, connect to the SessionBus
+	# For a CCGX, connect to the SystemBus
+	bus = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 	busName = dbus.service.BusName(dbusName, bus)
+
 	for setting in settings:
 		myDbusObject = MyDbusObject(busName, setting)
 		myDbusServices.append(myDbusObject)
@@ -668,6 +666,9 @@ def usage():
 	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
 	print("--banner\tshows program-name and version at startup")
+	print("")
+	print("NOTE FOR DEBUGGING ON DESKTOP")
+	print("This code expects a path /conf, and permissions in that path to write/read.")
 
 def main(argv):
 	global tracingEnabled
