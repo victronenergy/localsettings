@@ -661,7 +661,6 @@ def run():
 def usage():
 	print("Usage: ./localsettings [OPTION]")
 	print("-h, --help\tdisplay this help and exit")
-	print("-c\t\tenable tracing to console (standard off)")
 	print("-t\t\tenable tracing to file (standard off)")
 	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
@@ -675,7 +674,10 @@ def main(argv):
 	global traceToConsole
 	global traceToFile
 	global traceDebugOn
-	
+
+	tracingEnabled = True
+	traceToConsole = True
+
 	try:
 		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner"])
 	except getopt.GetoptError:
@@ -685,9 +687,6 @@ def main(argv):
 		if opt == '-h' or opt == '--help':
 			usage()
 			sys.exit()
-		elif opt == '-c':
-			tracingEnabled = True
-			traceToConsole = True
 		elif opt == '-t':
 			tracingEnabled = True
 			traceToFile = True
@@ -696,8 +695,8 @@ def main(argv):
 		elif opt == '-v' or opt == '--version':
 			print(version)
 			sys.exit()
-		elif opt == '--banner':
-			print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
+
+	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
 	run()
 	
