@@ -3,6 +3,11 @@
 ## @package localsettings
 # Dbus-service for local settings.
 #
+# Below code needs a major check and cleanup. A not complete list would be:
+# - get rid of the tracing, just use the standard logging modul, as also done in dbus_conversions for example
+# - use argparse.ArgumentParser, so get rid of usage()
+# - probably remove a lot of dbus code and replace by items from vedbus.py from velib_python
+
 # The local-settings-dbus-service provides the local-settings storage in non-volatile-memory.
 # The settings are stored in the settings.xml file. At startup the xml file is parsed and
 # the dbus-service with his paths are created from the content of the xml file.
@@ -17,9 +22,6 @@
 # </Settings>
 # This will be parsed as an dbus-object-path /Settings/Logging/LogInterval.
 #
-# A setting can have different types. The types are s (string), i (integer) and f (float).
-#
-# A setting can have a minimum, a maximum and a default value.
 # These are set as an attribute of a (setting) element.
 # Example 2: <Brigthness type="i" min="0" max="100" default="100">100</Brigthness>
 # Example 3: <LogInterval type="i" min="5" default="900">900</LogInterval>
@@ -29,16 +31,6 @@
 # By means of the file settingchanges.xml settings can be added or deleted. This file
 # is processed at startup and then deleted.
 #
-# Typical implementation
-# 1) Always do an AddSetting in the start of your code. This will make sure the setting exists, and
-# will not overwrite an existing value. Set min and max to 0 to work without min and max.
-# dbus -y com.victronenergy.settings /Settings AddSetting GUI Brightness 100 i 0 100
-#
-# 2) Then read it:
-# dbus -y com.victronenergy.settings /Settings/GUI/Brightness GetValue
-#
-# 3) Or write it:
-# dbus -y com.victronenergy.settings /Settings/GUI/Brightness SetValue 50
 
 ##  
 
