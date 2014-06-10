@@ -56,7 +56,7 @@ import tracing
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x00
+FIRMWARE_VERSION_MINOR = 0x01
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
