@@ -46,10 +46,12 @@ import signal
 from lxml import etree
 import getopt
 import errno
-
-# Local imports
-import tracing
 import platform
+import os
+
+# Victron imports
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
+import tracing
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
