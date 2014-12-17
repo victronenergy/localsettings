@@ -21,8 +21,9 @@ Typical implementation in your code in case you want some settings would be:
 1. Always do an AddSetting in the start of your code. This will make sure the setting
 exists, and will not overwrite an existing value. Example with commandline tool:
 
-    dbus -y com.victronenergy.settings /Settings AddSetting GUI Brightness 100 i 0 100
+    dbus -y com.victronenergy.settings /Settings AddSetting GUI Brightness 50 i 0 100
 
+    In which 50 is the default value, i the type, 0 the minimum value and 100 the maximum value.
 2. Then read it:
 
     dbus -y com.victronenergy.settings /Settings/GUI/Brightness GetValue
