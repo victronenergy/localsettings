@@ -41,6 +41,7 @@ To do this from Python, see import settingsdevice.py from velib_python. Below co
 
 Somewhere in your init code, make the settings:
 
+    from settingsdevice import SettingsDevice  # available in the velib_python repository
     settings = SettingsDevice(
         bus=dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus(),
         supportedSettings={
@@ -59,6 +60,7 @@ you'ĺl be informed that someone, for example the GUI, has changed a setting. Ab
 function has this definition:
 
     def handle_changed_setting(setting, oldvalue, newvalue):
+        print 'setting changed, setting: %s, old: %s, new: %s' % (setting, oldvalue, newvalue)
 
 
 To read or write a setting yourself, do:
