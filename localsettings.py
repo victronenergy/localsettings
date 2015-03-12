@@ -146,6 +146,7 @@ class SettingObject(dbus.service.Object):
 	# Returns the value of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
+		logging.debug('GetValue %s: %s', self._object_path, self.value)
 		return self.value
 
 	## Dbus method GetText
@@ -812,19 +813,21 @@ class LocalSettings:
 def main(argv):
 	global localSettings
 
-	logging.getLogger().setLevel(logging.INFO)
-
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--path', help = 'use given dir as data directory', default = ".")
 	parser.add_argument('--no-delay', action = 'store_true',
 							help = "don't delay storing the settings (used by the test script)")
 	parser.add_argument('-v', '--version', action = 'store_true',
 							help = "returns the program version")
+	parser.add_argument('-d', '--debug', action = 'store_true',
+							help = 'Use verbose output')
 	args = parser.parse_args(argv)
 
 	if args.version:
 		print("v%01x.%02x" % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 		sys.exit()
+
+	logging.getLogger().setLevel(logging.DEBUG if args.debug else logging.INFO)
 
 	if args.path[-1] != '/':
 		args.path += "/"
