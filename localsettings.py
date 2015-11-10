@@ -227,10 +227,12 @@ class MyDbusObject(dbus.service.Object):
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
-	def _setValue(self, value):
+	def _setValue(self, value, printLog=True):
 		global settings
 
-		tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
+		if printLog:
+			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
+
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
 		text = self.GetText()
@@ -357,8 +359,8 @@ class MyDbusObject(dbus.service.Object):
 					myDbusServices.append(myDbusObject)
 					if not groupPath in groups:
 						groups.append(groupPath)
-						myDbusObject = MyDbusObject(busName, groupPath)
-						myDbusGroupServices.append(myDbusObject)
+						groupObject = MyDbusObject(busName, groupPath)
+						myDbusGroupServices.append(groupObject)
 			except:
 				return -1
 			changes = True
@@ -373,9 +375,9 @@ class MyDbusObject(dbus.service.Object):
 						value = settings[itemPath][VALUE]
 			if changes:
 				settings[itemPath] = [0, {}]
-				settings[itemPath][VALUE] = value
 				settings[itemPath][ATTRIB] = attributes
 				tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+				myDbusObject._setValue(value, printLog=False)
 				tracing.log.debug(settings.items())
 				tracing.log.debug(groups)
 				settingsAdded = True
