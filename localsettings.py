@@ -40,7 +40,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
 from gobject import timeout_add, source_remove, MainLoop
-from os import path, getpid, remove, rename, _exit
+from os import path, getpid, remove, rename, _exit, environ
 import sys
 import signal
 from lxml import etree
@@ -641,7 +641,7 @@ def run():
 
 	# For a PC, connect to the SessionBus
 	# For a CCGX, connect to the SystemBus
-	bus = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+	bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 	busName = dbus.service.BusName(dbusName, bus)
 
 	for setting in settings:
