@@ -33,7 +33,7 @@ class CreateLocalSettingsTest(unittest.TestCase):
 		# wait for it to be up and running
 		time.sleep(2)
 
-		#while (self.sp.stdout.readline().rstrip().endswith('Created settings file /conf/settings.xml')):
+		#while (self.sp.stdout.readline().rstrip().endswith('Created settings file /data/conf/settings.xml')):
 		#	time.sleep(0.1)
 		#	pass
 
@@ -43,7 +43,7 @@ class CreateLocalSettingsTest(unittest.TestCase):
 
 	def setUp(self):
 		# Always start with a fresh and running instance of localsettings
-		os.remove('/conf/settings.xml')
+		os.remove('/data/conf/settings.xml')
 		self._startLocalSettings()
 		self._dbus = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 

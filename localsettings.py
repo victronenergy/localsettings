@@ -116,7 +116,7 @@ newFileExtension = '.new'
 newFileSettings = fileSettings + newFileExtension
 
 ## Path(s) definitions.
-pathSettings = '/conf/' 
+pathSettings = '/data/conf/'
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
