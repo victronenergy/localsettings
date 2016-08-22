@@ -137,17 +137,6 @@ class MyDbusObject(dbus.service.Object):
 	# @param objectPath The dbus-object-path (e.g. '/Settings/Logging/LogInterval').
 	def __init__(self, busName, objectPath):
 		dbus.service.Object.__init__(self, busName, objectPath)
-
-	## Dbus method GetDescription
-	#
-	# Returns the a description. Currently not implemented.
-	# Alwayes returns 'no description available'.
-	# @param language A language code (e.g. ISO 639-1 en-US).
-	# @param length Lenght of the language string. 
-	# @return description Always returns 'no description available'
-	@dbus.service.method(InterfaceBusItem, in_signature = 'si', out_signature = 's')
-	def GetDescription(self, language, length):
-		return 'no description available'
 	
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
