@@ -354,22 +354,26 @@ class MyDbusObject(dbus.service.Object):
 			myDbusGroupServices.append(groupObject)
 
 		if not itemPath in settings:
+			# New setting
 			myDbusObject = MyDbusObject(busName, itemPath)
 			myDbusServices.append(myDbusObject)
 		else:
+			# Existing setting
+			if settings[itemPath][ATTRIB][TYPE] != attributes[TYPE]:
+				return -5
+
 			for service in myDbusServices:
 				if service._object_path == itemPath:
 					myDbusObject = service
 					break
 
-			if settings[itemPath][ATTRIB][TYPE] == attributes[TYPE]:
-				unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
-				if len(unmatched) == 0:
-					# There are no changes
-					return 0
+			unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
+			if len(unmatched) == 0:
+				# There are no changes
+				return 0
 
-				# There are changes, but keep current value.
-				value = settings[itemPath][VALUE]
+			# There are changes, save them while keeping the current value.
+			value = settings[itemPath][VALUE]
 
 		settings[itemPath] = [0, {}]
 		settings[itemPath][ATTRIB] = attributes

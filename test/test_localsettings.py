@@ -124,6 +124,10 @@ class LocalSettingsTest(unittest.TestCase):
 			print "\n\n===Testing %s===\n" % name
 			self.assertEqual(-2, self._add_setting(details['group'], details['setting'], details['value'], details['type'], details['min'], details['max']))
 
+	def test_re_adding_setting_with_different_type_fails(self):
+		self.assertEqual(0, self._add_setting('g', 's', 0, 'i', 0, 0))
+		self.assertGreater(0, self._add_setting('g', 's', 0, 'f', 0, 0))
+
 	def _startLocalSettings(self):
 		self.sp = subprocess.Popen([sys.executable, "../localsettings.py"], stdout=subprocess.PIPE)
 		# wait for it to be up and running

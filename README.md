@@ -29,6 +29,7 @@ Return code:
   allowed. For example /_GUI/Brightness.
 * -3 = Error, unsupport type
 * -4 = Error, error converting value and min/max to the specified type
+* -5 = Error, a setting is being re-added which has a different type.
 
 Notes:
 * Set both min and max to 0 to work without a min and max value
