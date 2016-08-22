@@ -77,10 +77,9 @@ class LocalSettingsTest(unittest.TestCase):
 		testsets['float-with-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 0.0, 'max': 1000.0}
 		testsets['start-group-with-digit'] = {'group': '0g', 'setting': 's', 'default': 104, 'value': 104, 'type': 'i', 'min': 0, 'max': 0}
 		testsets['start-setting-with-digit'] = {'group': 'g', 'setting': '0s', 'default': 105, 'value': 105, 'type': 'i', 'min': 0, 'max': 0}
-
-		# re-adding a setting results in an error. See open issue on github.
-		# testsets['int-re-add-same-min-max'] = {'group': 'g', 'setting': 'in', 'default': 200, 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
-		# testsets['int-re-add-other-min-max'] = {'group': 'g', 'setting': 'in', 'default': 201, 'value': 100, 'type': 'i', 'min': 0, 'max': 1000}
+		testsets['int-re-add-same-min-max'] = {'group': 'g', 'setting': 'in', 'default': 200, 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
+		testsets['int-re-add-other-min-max'] = {'group': 'g', 'setting': 'in', 'default': 201, 'value': 100, 'type': 'i', 'min': 10, 'max': 1000}
+		testsets['float-re-add-other-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 1.0, 'max': 1001.0}
 
 
 		for name, details in testsets.iteritems():

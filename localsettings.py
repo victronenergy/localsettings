@@ -348,18 +348,20 @@ class MyDbusObject(dbus.service.Object):
 		except:
 			return -4
 
-		try:
-			if not itemPath in settings:
-				myDbusObject = MyDbusObject(busName, itemPath)
-				myDbusServices.append(myDbusObject)
-				if not groupPath in groups:
-					groups.append(groupPath)
-					groupObject = MyDbusObject(busName, groupPath)
-					myDbusGroupServices.append(groupObject)
-		except:
-			return -5
+		if not groupPath in groups:
+			groups.append(groupPath)
+			groupObject = MyDbusObject(busName, groupPath)
+			myDbusGroupServices.append(groupObject)
 
-		if itemPath in settings:
+		if not itemPath in settings:
+			myDbusObject = MyDbusObject(busName, itemPath)
+			myDbusServices.append(myDbusObject)
+		else:
+			for service in myDbusServices:
+				if service._object_path == itemPath:
+					myDbusObject = service
+					break
+
 			if settings[itemPath][ATTRIB][TYPE] == attributes[TYPE]:
 				unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
 				if len(unmatched) == 0:
@@ -373,8 +375,6 @@ class MyDbusObject(dbus.service.Object):
 		settings[itemPath][ATTRIB] = attributes
 		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
 		myDbusObject._setValue(value, printLog=False)
-		tracing.log.debug(settings.items())
-		tracing.log.debug(groups)
 		settingsAdded = True
 		self._startTimeoutSaveSettings()
 		return 0
