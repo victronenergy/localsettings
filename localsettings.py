@@ -314,72 +314,70 @@ class MyDbusObject(dbus.service.Object):
 		global settingsAdded
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
-		okToSave = False
-		if self._object_path in groups:
-			if group.startswith('/') or group == '':
-				groupPath = self._object_path + str(group)
-			else:
-				groupPath = self._object_path + '/' + str(group)
-
-			if name.startswith('/'):
-				itemPath = groupPath + str(name)
-			else:
-				itemPath = groupPath + '/' + str(name)
-
-			# A prefixing underscore is an escape char: don't allow it in a normal path
-			if "/_" in itemPath:
-				return -2
-
-			if itemType in supportedTypes:
-				try:
-					value = convertToType(itemType, defaultValue)
-					if type(value) != str:
-						min = convertToType(itemType, minimum)
-						max = convertToType(itemType, maximum)
-						if min is 0 and max is 0:
-							okToSave = True
-							attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-						elif value >= min and value <= max:
-							okToSave = True
-							attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
-					else:
-						okToSave = True
-						attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-				except:
-					okToSave = False
-		if okToSave == True:
-			try:
-				if not itemPath in settings:
-					myDbusObject = MyDbusObject(busName, itemPath)
-					myDbusServices.append(myDbusObject)
-					if not groupPath in groups:
-						groups.append(groupPath)
-						groupObject = MyDbusObject(busName, groupPath)
-						myDbusGroupServices.append(groupObject)
-			except:
-				return -1
-			changes = True
-			if itemPath in settings:
-				if settings[itemPath][ATTRIB][TYPE] == attributes[TYPE]:
-					unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
-					if len(unmatched) == 0:
-						# There are no changes
-						changes = False
-					else:
-						# There are changes, but keep current value.
-						value = settings[itemPath][VALUE]
-			if changes:
-				settings[itemPath] = [0, {}]
-				settings[itemPath][ATTRIB] = attributes
-				tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
-				myDbusObject._setValue(value, printLog=False)
-				tracing.log.debug(settings.items())
-				tracing.log.debug(groups)
-				settingsAdded = True
-				self._startTimeoutSaveSettings()
-			return 0
-		else:
+		if self._object_path not in groups:
 			return -1
+
+		if group.startswith('/') or group == '':
+			groupPath = self._object_path + str(group)
+		else:
+			groupPath = self._object_path + '/' + str(group)
+
+		if name.startswith('/'):
+			itemPath = groupPath + str(name)
+		else:
+			itemPath = groupPath + '/' + str(name)
+
+		# A prefixing underscore is an escape char: don't allow it in a normal path
+		if "/_" in itemPath:
+			return -2
+
+		if itemType not in supportedTypes:
+			return -3
+
+		try:
+			value = convertToType(itemType, defaultValue)
+			if type(value) != str:
+				min = convertToType(itemType, minimum)
+				max = convertToType(itemType, maximum)
+				if min is 0 and max is 0:
+					attributes = {TYPE:str(itemType), DEFAULT:str(value)}
+				elif value >= min and value <= max:
+					attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
+			else:
+				attributes = {TYPE:str(itemType), DEFAULT:str(value)}
+		except:
+			return -4
+
+		try:
+			if not itemPath in settings:
+				myDbusObject = MyDbusObject(busName, itemPath)
+				myDbusServices.append(myDbusObject)
+				if not groupPath in groups:
+					groups.append(groupPath)
+					groupObject = MyDbusObject(busName, groupPath)
+					myDbusGroupServices.append(groupObject)
+		except:
+			return -5
+
+		if itemPath in settings:
+			if settings[itemPath][ATTRIB][TYPE] == attributes[TYPE]:
+				unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
+				if len(unmatched) == 0:
+					# There are no changes
+					return 0
+
+				# There are changes, but keep current value.
+				value = settings[itemPath][VALUE]
+
+		settings[itemPath] = [0, {}]
+		settings[itemPath][ATTRIB] = attributes
+		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+		myDbusObject._setValue(value, printLog=False)
+		tracing.log.debug(settings.items())
+		tracing.log.debug(groups)
+		settingsAdded = True
+		self._startTimeoutSaveSettings()
+		return 0
 
 ## The callback method for saving the settings-xml-file.
 # Calls the parseDictonaryToXmlFile with the dictonary settings and settings-xml-filename.

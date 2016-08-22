@@ -24,9 +24,12 @@ Parameters:
 
 Return code:
 *  0 = OK
-* -1 = Error
-* -2 = Error: one of the sections starts with an underscore, and that is not
+* -1 = Error, see code for details
+* -2 = Error, one of the sections starts with an underscore, and that is not
   allowed. For example /_GUI/Brightness.
+* -3 = Error, unsupport type
+* -4 = Error, error converting value and min/max to the specified type
+* -5 = Error, See code for details
 
 Notes:
 * Set both min and max to 0 to work without a min and max value
