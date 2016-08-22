@@ -455,6 +455,10 @@ def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
 				return
 		else:
 			objectPath = path
+
+		# Remove possible underscore prefix
+		objectPath = objectPath.replace("/_", "/")
+
 		if element.get('type') != None:
 			elementType = element.attrib[TYPE]
 			text = element.text
@@ -483,6 +487,10 @@ def parseDictonaryToXmlFile(dictonary, file):
 		items.remove(root.tag)
 		elem = root
 		for item in items:
+			# Prefix items starting with a digit, because an XML element cannot start with a digit.
+			if item[0].isdigit():
+				item = "_" + item
+
 			foundElem = elem.find(item)
 			if foundElem == None:
 				elem = etree.SubElement(elem, item)
