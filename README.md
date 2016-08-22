@@ -1,21 +1,62 @@
 # localsettings
 
-D-Bus settings manager that interfaces between xml file on disk and D-Bus. Used on
-the CCGX. All programs that need non-volatile settings use this dbus service. And
-all code that changes settings from other processes, for example the GUI, do that
-via the D-Bus service of com.victronenergy.settings as well. Some reasons for doing
-it this way are:
+D-Bus settings manager that interfaces between xml file on disk and D-Bus. It is a
+part of [Venus](https://github.com/victronenergy/venus/wiki). All programs that need
+non-volatile settings use this dbus service. And all code that changes settings from
+other processes, for example the GUI, do that via the D-Bus service of
+com.victronenergy.settings as well. Some reasons for doing it this way are:
 - one place to see all the settings
 - one log to see changes in the settings (/log/localsettings/*)
 - one place to reset all settings to factory-default
 
-There are three types of settings:
-- 'i' - integer
-- 'f' - float
-- 's' - string
+## D-Bus API
+#### AddSetting
+Call this function on the /Settings path.
 
-Each setting can have a min, a max and a default value. Set min and max to 0 to work without min and max.
+Parameters:
+- Groupname
+- Setting name (can contain subpaths, for example display/brightness.
+  /display/brightness will work as well and has the same effect)
+- Default value
+- Type ('i' - integer, 'f' - float, 's' - string)
+- Min value
+- Max value
 
+Return code:
+*  0 = OK
+* -1 = Error
+
+Notes:
+* Set both min and max to 0 to work without a min and max value
+* Executing AddSetting for a path that already exists will not cause the existing
+  value to be changed. In other words, it is safe to call AddSetting without first
+  checking if that setting, aka path, is already there.
+
+#### GetValue
+Returns the value. Call this function on the path of which you want to read the
+value. No parameters.
+
+#### GetText
+Same as GetValue, but then returns str(value).
+
+#### SetValue
+Call this function on the path of with you want to write a new value.
+
+Return code:
+*  0 = OK
+* -1 = Error
+
+#### GetMin
+See source code
+
+#### GetMax
+See source code
+
+#### SetDefault
+See source code
+
+## Usage examples and libraries
+### Command line
 Typical implementation in your code in case you want some settings would be:
 
 1. Always do an AddSetting in the start of your code. This will make sure the setting
@@ -35,7 +76,7 @@ exists, and will not overwrite an existing value. Example with commandline tool:
 Obviously you won't be calling dbus -y everytime, but implement some straight dbus
 interface in your code. Below are some examples for different languages.
 
-## Python
+### Python
 
 To do this from Python, see import settingsdevice.py from velib_python. Below code gives a good example:
 
@@ -72,10 +113,10 @@ Or read from it:
 
     print(settings['url'])
 
-## QT / C++
+### QT / C++
 todo.
 
-## C
+### C
 todo.
 
 ## Running on a linux PC
