@@ -331,10 +331,16 @@ class MyDbusObject(dbus.service.Object):
 				groupPath = self._object_path + str(group)
 			else:
 				groupPath = self._object_path + '/' + str(group)
+
 			if name.startswith('/'):
 				itemPath = groupPath + str(name)
 			else:
 				itemPath = groupPath + '/' + str(name)
+
+			# A prefixing underscore is an escape char: don't allow it in a normal path
+			if "/_" in itemPath:
+				return -2
+
 			if itemType in supportedTypes:
 				try:
 					value = convertToType(itemType, defaultValue)

@@ -25,6 +25,8 @@ Parameters:
 Return code:
 *  0 = OK
 * -1 = Error
+* -2 = Error: one of the sections starts with an underscore, and that is not
+  allowed. For example /_GUI/Brightness.
 
 Notes:
 * Set both min and max to 0 to work without a min and max value
