@@ -90,6 +90,7 @@ TYPE='type'
 MIN='min'
 MAX='max'
 DEFAULT='default'
+SILENT='silent'
 
 ## Supported types for convert xml-text to value.
 supportedTypes = {
@@ -219,7 +220,7 @@ class MyDbusObject(dbus.service.Object):
 	def _setValue(self, value, printLog=True):
 		global settings
 
-		if printLog:
+		if printLog and settings[self._object_path][ATTRIB].get(SILENT) != 'True':
 			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
 
 		settings[self._object_path][VALUE] = value
@@ -291,6 +292,23 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.error('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
+	## Dbus method GetSilent.
+	# @return 1 if the setting is silent, 0 is it is not. Returns -1 if an error occurred.
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
+	def GetSilent(self):
+		global settings
+
+		tracing.log.debug('GetSilent %s' % self._object_path)
+		path = self._object_path
+		if path in groups:
+			return -1
+		try:
+			value = settings[path][ATTRIB].get(SILENT) == 'True'
+			return 1 if value else 0
+		except:
+			tracing.log.error('Could not get silent property for %s %s' % (path, settings[path][ATTRIB].items()))
+			return -1
+
 	## Dbus method AddSetting.
 	# Add a new setting by the given parameters. The object-path must be a group.
 	# Example 1: dbus /Settings AddSetting Groupname Settingname 100 i 0 100
@@ -305,6 +323,13 @@ class MyDbusObject(dbus.service.Object):
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
+		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)
+
+	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
+	def AddSilentSetting(self, group, name, defaultValue, itemType, minimum, maximum):
+		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)
+
+	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
 		global groups
 		global settings
 		global defaults
@@ -345,6 +370,7 @@ class MyDbusObject(dbus.service.Object):
 					attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
 			else:
 				attributes = {TYPE:str(itemType), DEFAULT:str(value)}
+			attributes[SILENT] = str(silent)
 		except:
 			return -4
 
@@ -377,7 +403,7 @@ class MyDbusObject(dbus.service.Object):
 
 		settings[itemPath] = [0, {}]
 		settings[itemPath][ATTRIB] = attributes
-		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s' % (itemPath, defaultValue, itemType, minimum, maximum))
+		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
 		myDbusObject._setValue(value, printLog=False)
 		settingsAdded = True
 		self._startTimeoutSaveSettings()

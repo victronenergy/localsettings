@@ -39,6 +39,12 @@ class LocalSettingsTest(unittest.TestCase):
 		self._stopLocalSettings()
 
 	def test_adding_new_setting_creates_signal(self):
+		self.add_new_setting_creates_signal('AddSetting')
+
+	def test_adding_new_silent_setting_creates_signal(self):
+		self.add_new_setting_creates_signal('AddSilentSetting')
+
+	def add_new_setting_creates_signal(self, rpc_name='AddSetting'):
 		details = {'group': 'g', 'setting': 's', 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
 
 		monitor = VeDbusItemImport(
@@ -66,6 +72,12 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(self._called, ['com.victronenergy.settings', '/Settings/' + details['group'] + '/' + details['setting'], {'Text': '100', 'Value': 100}])
 
 	def test_adding_new_settings_and_readback(self):
+		self.add_new_settings_and_readback(rpc_name='AddSetting')
+
+	def test_adding_new_silent_settings_and_readback(self):
+		self.add_new_settings_and_readback(rpc_name='AddSilentSetting')
+
+	def add_new_settings_and_readback(self, rpc_name='AddSetting'):
 		from collections import OrderedDict
 		testsets = OrderedDict()
 		testsets['int-no-min-max'] = {'group': 'g', 'setting': 'in', 'default': 100, 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
@@ -84,7 +96,8 @@ class LocalSettingsTest(unittest.TestCase):
 
 		for name, details in testsets.iteritems():
 			print "\n\n===Testing %s===\n" % name
-			self.assertEqual(0, self._add_setting(details['group'], details['setting'], details['default'], details['type'], details['min'], details['max']))
+			setting = details['setting'] + '/' + rpc_name
+			self.assertEqual(0, self._add_setting(details['group'], setting, details['default'], details['type'], details['min'], details['max'], rpc_name=rpc_name))
 
 			# wait 2.5 seconds, since local settings itself waits 2 seconds before it stores the data.
 			time.sleep(2.5)
@@ -98,7 +111,7 @@ class LocalSettingsTest(unittest.TestCase):
 			i = VeDbusItemImport(
 				self._dbus,
 				'com.victronenergy.settings',
-				'/Settings/' + details['group'] + '/' + details['setting'],
+				'/Settings/' + details['group'] + '/' + setting,
 				eventCallback=None,
 				createsignal=False)
 			result = copy.deepcopy(details)
@@ -137,9 +150,9 @@ class LocalSettingsTest(unittest.TestCase):
 		self.sp.kill()
 		self.sp.wait()
 
-	def _add_setting(self, group, setting, value, type, minimum, maximum):
-		return VeDbusItemImport(self._dbus, 'com.victronenergy.settings', '/Settings',
-		createsignal=False)._proxy.AddSetting(group, setting, value, type, minimum, maximum)
+	def _add_setting(self, group, setting, value, type, minimum, maximum, rpc_name='AddSetting'):
+		item = VeDbusItemImport(self._dbus, 'com.victronenergy.settings', '/Settings', createsignal=False)
+		return item._proxy.get_dbus_method(rpc_name)(group, setting, value, type, minimum, maximum)
 
 	def _call_me(self, service, path, changes):
 		self._called = [service, path, changes]
