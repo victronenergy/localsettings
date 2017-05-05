@@ -409,6 +409,24 @@ class MyDbusObject(dbus.service.Object):
 		self._startTimeoutSaveSettings()
 		return 0
 
+
+# This object will send an overview of all available D-Bus paths and their values in the settings service if
+# a GetValue or GetText is issued on the root of the service.
+class RootObject(dbus.service.Object):
+	def __init__(self, busname):
+		dbus.service.Object.__init__(self, busname, '/')
+
+	@dbus.service.method(InterfaceBusItem, out_signature='v')
+	def GetValue(self):
+		values = dict((k[1:], v[VALUE]) for k, v in settings.iteritems())
+		return dbus.Dictionary(values, signature=dbus.Signature('sv'), variant_level=1)
+
+	@dbus.service.method(InterfaceBusItem, out_signature='v')
+	def GetText(self):
+		values = dict((k[1:], str(v[VALUE])) for k, v in settings.iteritems())
+		return values
+
+
 ## The callback method for saving the settings-xml-file.
 # Calls the parseDictonaryToXmlFile with the dictonary settings and settings-xml-filename.
 def saveSettingsCallback():
@@ -674,6 +692,7 @@ def run():
 	# For a CCGX, connect to the SystemBus
 	bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 	busName = dbus.service.BusName(dbusName, bus)
+	root = RootObject(busName)
 
 	for setting in settings:
 		myDbusObject = MyDbusObject(busName, setting)
