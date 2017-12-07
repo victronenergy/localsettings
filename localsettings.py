@@ -770,21 +770,24 @@ def usage():
 	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
 	print("--banner\tshows program-name and version at startup")
+	print("--path=dir\tuse given dir as data directory instead of /data")
 	print("")
 	print("NOTE FOR DEBUGGING ON DESKTOP")
-	print("This code expects a path /conf, and permissions in that path to write/read.")
+	print("This code expects a path /data/conf or --path to be set, and")
+	print("permissions in that path to write/read.")
 
 def main(argv):
 	global tracingEnabled
 	global traceToConsole
 	global traceToFile
 	global traceDebugOn
+	global pathSettings
 
 	tracingEnabled = True
 	traceToConsole = True
 
 	try:
-		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner"])
+		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path="])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(errno.EINVAL)
@@ -800,6 +803,10 @@ def main(argv):
 		elif opt == '-v' or opt == '--version':
 			print(version)
 			sys.exit()
+		elif opt == '--path':
+			pathSettings = arg
+			if pathSettings[-1] != '/':
+				pathSettings += "/"
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
