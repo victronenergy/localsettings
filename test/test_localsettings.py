@@ -67,7 +67,6 @@ class LocalSettingsTest(unittest.TestCase):
 
 		# restart localsettings
 		self._stopLocalSettings()
-		time.sleep(2)
 		self._startLocalSettings()
 
 		# manually iterate the mainloop
@@ -110,7 +109,6 @@ class LocalSettingsTest(unittest.TestCase):
 
 			# restart localsettings
 			self._stopLocalSettings()
-			time.sleep(2)
 			self._startLocalSettings()
 
 			# read the results
