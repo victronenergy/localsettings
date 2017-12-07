@@ -140,6 +140,27 @@ class LocalSettingsTest(unittest.TestCase):
 
 			self.assertEqual(details, result)
 
+	def test_change_max_creates_signal(self):
+		details = {'group': 'g', 'setting': 'f', 'value': 103.0, 'type': 'f', 'min': 2.0, 'max': 1002.0}
+
+		self._called = []
+		monitor = VeDbusItemImport(
+			self._dbus,
+			'com.victronenergy.settings',
+			'/Settings/' + details['group'] + '/' + details['setting'],
+			eventCallback=self._call_me,
+			createsignal=True)
+
+		self._add_setting(details['group'], details['setting'], details['value'], details['type'], details['min'], details['max'])
+
+		# manually iterate the mainloop
+		main_context = GLib.MainContext.default()
+		while main_context.pending():
+			main_context.iteration(False)
+
+		self.assertEqual(self._called, ['com.victronenergy.settings', '/Settings/' + details['group'] + '/' + details['setting'],
+						{'Default': 103.0, 'Text': '103.0', 'Min': '2.0', 'Max': '1002.0', 'Value': 103}])
+
 	def test_adding_new_settings_with_underscore_fails(self):
 		testsets = {
 			'start-group-with-underscore-fails': {'group': '_g', 'setting': 's', 'value': 100, 'type': 'i', 'min': 0, 'max': 0},
