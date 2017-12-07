@@ -84,7 +84,8 @@ class LocalSettingsTest(unittest.TestCase):
 		while main_context.pending():
 			main_context.iteration(False)
 
-		self.assertEqual(self._called, ['com.victronenergy.settings', '/Settings/' + details['group'] + '/' + details['setting'], {'Text': '100', 'Value': 100}])
+		self.assertEqual(self._called, ['com.victronenergy.settings', '/Settings/' + details['group'] + '/' + details['setting'],
+						{'Text': '100', 'Value': 100, 'Min': 0, 'Max': 0, 'Default': 100 }])
 
 	def test_adding_new_settings_and_readback(self):
 		self.add_new_settings_and_readback(rpc_name='AddSetting')
