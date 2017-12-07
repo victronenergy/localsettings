@@ -46,6 +46,15 @@ class LocalSettingsTest(unittest.TestCase):
 	def tearDown(self):
 		self._stopLocalSettings()
 
+	def updateSettingsStamp(self):
+		self._settingsStamp = os.path.getmtime(self._settingsFile)
+
+	def waitForSettingsStored(self):
+		for x in range(0, 50):
+			if self._settingsStamp != os.path.getmtime(self._settingsFile):
+				return
+			time.sleep(0.01)
+
 	def test_adding_new_setting_creates_signal(self):
 		self.add_new_setting_creates_signal('AddSetting')
 
@@ -62,10 +71,9 @@ class LocalSettingsTest(unittest.TestCase):
 			eventCallback=self._call_me,
 			createsignal=True)
 
+		self.updateSettingsStamp()
 		self._add_setting(details['group'], details['setting'], details['value'], details['type'], details['min'], details['max'])
-
-		# wait 2.5 seconds, since local settings itself waits 2 seconds before it stores the data.
-		time.sleep(2.5)
+		self.waitForSettingsStored()
 
 		# restart localsettings
 		self._stopLocalSettings()
@@ -100,14 +108,12 @@ class LocalSettingsTest(unittest.TestCase):
 		testsets['int-re-add-other-min-max'] = {'group': 'g', 'setting': 'in', 'default': 201, 'value': 100, 'type': 'i', 'min': 10, 'max': 1000}
 		testsets['float-re-add-other-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 1.0, 'max': 1001.0}
 
-
 		for name, details in testsets.iteritems():
 			print "\n\n===Testing %s===\n" % name
+			self.updateSettingsStamp()
 			setting = details['setting'] + '/' + rpc_name
 			self.assertEqual(0, self._add_setting(details['group'], setting, details['default'], details['type'], details['min'], details['max'], rpc_name=rpc_name))
-
-			# wait 2.5 seconds, since local settings itself waits 2 seconds before it stores the data.
-			time.sleep(2.5)
+			self.waitForSettingsStored()
 
 			# restart localsettings
 			self._stopLocalSettings()
@@ -149,7 +155,7 @@ class LocalSettingsTest(unittest.TestCase):
 
 	def _startLocalSettings(self):
 		self._isUp = False
-		self.sp = subprocess.Popen([sys.executable, here + "/../localsettings.py", "--path=" + self._dataDir], stdout=subprocess.PIPE)
+		self.sp = subprocess.Popen([sys.executable, here + "/../localsettings.py", "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
 
 		# wait for it to be up and running
 		while not self._isUp:
