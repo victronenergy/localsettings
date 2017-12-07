@@ -38,8 +38,10 @@ class LocalSettingsTest(unittest.TestCase):
 		except OSError:
 			pass
 
-		self._startLocalSettings()
 		self._dbus = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
+		self._dbus.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
+		self._isUp = False
+		self._startLocalSettings()
 
 	def tearDown(self):
 		self._stopLocalSettings()
@@ -146,9 +148,15 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertGreater(0, self._add_setting('g', 's', 0, 'f', 0, 0))
 
 	def _startLocalSettings(self):
+		self._isUp = False
 		self.sp = subprocess.Popen([sys.executable, here + "/../localsettings.py", "--path=" + self._dataDir], stdout=subprocess.PIPE)
+
 		# wait for it to be up and running
-		time.sleep(2)
+		while not self._isUp:
+			main_context = GLib.MainContext.default()
+			while main_context.pending():
+				main_context.iteration(False)
+
 
 	def _stopLocalSettings(self):
 		self.sp.kill()
@@ -163,6 +171,11 @@ class LocalSettingsTest(unittest.TestCase):
 
 	def	handle_changed_setting(setting, oldvalue, newvalue):
 		pass
+
+	def dbus_name_owner_changed(self, name, oldowner, newowner):
+		if name == "com.victronenergy.settings" and newowner != "":
+			self._isUp = True
+
 
 if __name__ == "__main__":
 	logging.basicConfig(stream=sys.stderr)
