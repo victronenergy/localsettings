@@ -782,12 +782,13 @@ def main(argv):
 	global traceToFile
 	global traceDebugOn
 	global pathSettings
+	global timeoutSaveSettingsTime
 
 	tracingEnabled = True
 	traceToConsole = True
 
 	try:
-		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path="])
+		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path=", "no-delay"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(errno.EINVAL)
@@ -807,6 +808,9 @@ def main(argv):
 			pathSettings = arg
 			if pathSettings[-1] != '/':
 				pathSettings += "/"
+		elif opt == '--no-delay':
+			print("no delay")
+			timeoutSaveSettingsTime = 0
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
