@@ -16,9 +16,11 @@ import fcntl
 import copy
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
+import os
 
 # Local
-sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../ext/velib_python'))
+here = os.path.join(os.path.dirname(__file__))
+sys.path.insert(1, os.path.join(here, '../ext/velib_python'))
 from settingsdevice import SettingsDevice
 from vedbus import VeDbusItemImport
 
@@ -26,9 +28,13 @@ logger = logging.getLogger(__file__)
 
 class LocalSettingsTest(unittest.TestCase):
 	def setUp(self):
+		self._dataDir = here + "/data/conf"
+		if not os.path.exists(self._dataDir):
+			os.makedirs(self._dataDir)
+		self._settingsFile = self._dataDir + '/settings.xml'
 		# Always start with a fresh and running instance of localsettings
 		try:
-			os.remove('/data/conf/settings.xml')
+			os.remove(self._settingsFile)
 		except OSError:
 			pass
 
@@ -142,7 +148,7 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertGreater(0, self._add_setting('g', 's', 0, 'f', 0, 0))
 
 	def _startLocalSettings(self):
-		self.sp = subprocess.Popen([sys.executable, "../localsettings.py"], stdout=subprocess.PIPE)
+		self.sp = subprocess.Popen([sys.executable, here + "/../localsettings.py", "--path=" + self._dataDir], stdout=subprocess.PIPE)
 		# wait for it to be up and running
 		time.sleep(2)
 
