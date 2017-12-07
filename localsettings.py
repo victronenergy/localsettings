@@ -217,7 +217,7 @@ class MyDbusObject(dbus.service.Object):
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
-	def _setValue(self, value, printLog=True):
+	def _setValue(self, value, printLog=True, sendAttributes=False):
 		global settings
 
 		if printLog and settings[self._object_path][ATTRIB].get(SILENT) != 'True':
@@ -227,6 +227,8 @@ class MyDbusObject(dbus.service.Object):
 		self._startTimeoutSaveSettings()
 		text = self.GetText()
 		change = {'Value':value, 'Text':text}
+		if sendAttributes:
+			change.update({'Min': self.GetMin(), 'Max': self.GetMax(), 'Default': self.GetDefault()})
 		self.PropertiesChanged(change)
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
@@ -404,7 +406,7 @@ class MyDbusObject(dbus.service.Object):
 		settings[itemPath] = [0, {}]
 		settings[itemPath][ATTRIB] = attributes
 		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
-		myDbusObject._setValue(value, printLog=False)
+		myDbusObject._setValue(value, printLog=False, sendAttributes=True)
 		settingsAdded = True
 		self._startTimeoutSaveSettings()
 		return 0
