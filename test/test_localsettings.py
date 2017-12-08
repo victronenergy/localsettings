@@ -19,7 +19,7 @@ from gi.repository import GLib
 import os
 
 # Local
-here = os.path.join(os.path.dirname(__file__))
+here = os.path.dirname(__file__)
 sys.path.insert(1, os.path.join(here, '../ext/velib_python'))
 from settingsdevice import SettingsDevice
 from vedbus import VeDbusItemImport
@@ -28,7 +28,7 @@ logger = logging.getLogger(__file__)
 
 class LocalSettingsTest(unittest.TestCase):
 	def setUp(self):
-		self._dataDir = here + "/data/conf"
+		self._dataDir = os.path.join(here, "data/conf")
 		if not os.path.exists(self._dataDir):
 			os.makedirs(self._dataDir)
 		self._settingsFile = self._dataDir + '/settings.xml'
@@ -177,7 +177,7 @@ class LocalSettingsTest(unittest.TestCase):
 
 	def _startLocalSettings(self):
 		self._isUp = False
-		self.sp = subprocess.Popen([sys.executable, here + "/../localsettings.py", "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
+		self.sp = subprocess.Popen([sys.executable, os.path.join(here, "..", "localsettings.py"), "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
 
 		# wait for it to be up and running
 		while not self._isUp:
