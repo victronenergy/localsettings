@@ -1,5 +1,7 @@
 # localsettings
 
+[![Build Status](https://travis-ci.org/victronenergy/localsettings.svg?branch=master)](https://travis-ci.org/victronenergy/localsettings)
+
 D-Bus settings manager that interfaces between xml file on disk and D-Bus. It is a
 part of [Venus](https://github.com/victronenergy/venus/wiki). All programs that need
 non-volatile settings use this dbus service. And all code that changes settings from
