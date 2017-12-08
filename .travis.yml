@@ -10,4 +10,4 @@ before_install:
   - sudo apt-get install python-dbus python-lxml python-gi
 
 script:
-  - python test/test_localsettings.py
+  - dbus-launch python test/test_localsettings.py
