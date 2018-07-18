@@ -583,7 +583,10 @@ def migrate_can_profile(tree):
 		return
 
 	with open('/etc/venus/canbus_ports', 'r') as f:
-		interface = f.readline().split(None, 1)[0]
+		iflist = f.readline().split(None, 1)
+		if not iflist:
+			return
+		interface = iflist[0]
 
 	path = "/Settings/Canbus/" + interface + "/Profile"
 
