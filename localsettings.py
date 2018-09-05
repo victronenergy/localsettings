@@ -544,7 +544,11 @@ def parseDictonaryToXmlFile(dictonary, file):
 		for attribute, value in attributes.iteritems():
 			elem.set(attribute, str(value))
 	newFile = file + newFileExtension
-	tree.write(newFile, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+	with open(newFile, 'wb') as fp:
+		tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+		fp.flush()
+		os.fsync(fp.fileno())
+
 	try:
 		rename(newFile, file)
 	except:
