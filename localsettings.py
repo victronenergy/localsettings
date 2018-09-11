@@ -48,6 +48,7 @@ import getopt
 import errno
 import platform
 import os
+import re
 
 # Victron imports
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
@@ -118,6 +119,7 @@ newFileSettings = fileSettings + newFileExtension
 
 ## Path(s) definitions.
 pathSettings = '/data/conf/'
+sysSettingsDir = '/etc/venus/settings.d'
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
@@ -554,6 +556,81 @@ def parseDictonaryToXmlFile(dictonary, file):
 	except:
 		tracing.log.error('renaming new file to settings file failed')
 
+def to_bool(val):
+	if type(val) != str:
+		return bool(val)
+
+	try:
+		return bool(int(val))
+	except:
+		pass
+
+	return val.lower() == 'true'
+
+
+## Validate and convert to value + attributes
+def makeDictEntry(val, itemtype, minval, maxval, silent):
+	if itemtype not in supportedTypes:
+		raise Exception('invalid type')
+
+	val = convertToType(itemtype, val)
+	attrs = { TYPE: itemtype, DEFAULT: str(val) }
+
+	if type(val) != str:
+		minval = convertToType(itemtype, minval)
+		maxval = convertToType(itemtype, maxval)
+
+		if minval or maxval:
+			if val < minval or val > maxval:
+				raise Exception('default value out of range')
+			attrs[MIN] = str(minval)
+			attrs[MAX] = str(maxval)
+
+	silent = to_bool(silent)
+	attrs[SILENT] = str(silent)
+
+	return val, attrs
+
+## Load settings from text file
+def loadSettingsFile(name, dictionary):
+	with open(name, 'r') as f:
+		for line in f:
+			v = re.sub('#.*', '', line).strip().split()
+			if not v:
+				continue
+
+			try:
+				path = v[0]
+				defval = v[1]
+				itemtype = v[2]
+			except:
+				raise Exception('syntax error: ' + line)
+
+			minval = v[3] if len(v) > 3 else 0
+			maxval = v[4] if len(v) > 4 else 0
+			silent = v[5] if len(v) > 5 else 0
+
+			val, attrs = makeDictEntry(defval, itemtype,
+						   minval, maxval, silent)
+
+			path = '/Settings/' + path.lstrip('/')
+			dictionary[path] = [val, attrs]
+
+## Load settings from each file in dir
+def loadSettingsDir(path, dictionary):
+	try:
+		names = os.listdir(path)
+	except:
+		return
+
+	for name in names:
+		filename = os.path.join(path, name)
+		try:
+			loadSettingsFile(filename, dictionary)
+		except Exception as ex:
+			tracing.log.error('error loading %s: %s' %
+					  (filename, str(ex)))
+
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
 #
 # Stops the logscript with an exit-code.
@@ -638,6 +715,7 @@ def run():
 	global fileSettings
 	global fileSettingChanges
 	global newFileSettings
+	global sysSettingsDir
 	global groups
 	global busName
 	global tracingEnabled
@@ -672,6 +750,9 @@ def run():
 	signal.signal(signal.SIGINT, handlerSignals) # 2: Ctrl-C
 	signal.signal(signal.SIGUSR1, handlerSignals) # 10: kill -USR1 <logscript-pid>
 	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
+
+	# load system default settings
+	loadSettingsDir(sysSettingsDir, settings)
 
 	if not path.isdir(pathSettings):
 		print('Error path %s does not exist!' % pathSettings)
