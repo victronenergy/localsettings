@@ -152,7 +152,11 @@ class MyDbusObject(dbus.service.Object):
 		
 		tracing.log.debug('GetValue %s' % self._object_path)
 		if self._object_path in groups:
-			return -1
+			prefix = self._object_path + '/'
+			return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
+				for k, v in settings.iteritems() \
+				if k.startswith(prefix) and len(k)>len(prefix) },
+				signature=dbus.Signature('sv'), variant_level=1)
 		return settings[self._object_path][VALUE]
 	
 	## Dbus method GetText
