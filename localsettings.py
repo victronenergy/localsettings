@@ -1,6 +1,13 @@
 #!/usr/bin/python -u
-
 ## @package localsettings
+#
+#Gregory Burte - 3 MArch 2019
+#Update of logging system
+#
+#Requires Logging
+#
+# Previous comments
+#---------------------
 # Dbus-service for local settings.
 #
 # Below code needs a major check and cleanup. A not complete list would be:
@@ -52,7 +59,8 @@ import re
 
 # Victron imports
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
-import tracing
+#import tracing
+import logging 
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
@@ -150,7 +158,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global groups
 		
-		tracing.log.debug('GetValue %s' % self._object_path)
+		logger.debug('GetValue %s' % self._object_path)
 		if self._object_path in groups:
 			prefix = self._object_path + '/'
 			return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
@@ -181,7 +189,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 		global supportedTypes
 		
-		tracing.log.debug('SetValue %s' % self._object_path)
+		logger.debug('SetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
 		okToSave = True
@@ -227,7 +235,7 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 
 		if printLog and settings[self._object_path][ATTRIB].get(SILENT) != 'True':
-			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
+			logger.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
 
 		settings[self._object_path][VALUE] = value
 		self._startTimeoutSaveSettings()
@@ -239,11 +247,11 @@ class MyDbusObject(dbus.service.Object):
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
 	def PropertiesChanged(self, changes):
-		tracing.log.debug('signal PropertiesChanged')
+		logger.debug('signal PropertiesChanged')
 
 	@dbus.service.signal(InterfaceSettings, signature = '')
 	def ObjectPathsChanged(self):
-		tracing.log.debug('signal ObjectPathsChanged')
+		logger.debug('signal ObjectPathsChanged')
 
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
@@ -264,7 +272,7 @@ class MyDbusObject(dbus.service.Object):
 	def GetDefault(self):
 		global settings
 		
-		tracing.log.info('GetDefault %s' % self._object_path)
+		logger.info('GetDefault %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
@@ -273,7 +281,7 @@ class MyDbusObject(dbus.service.Object):
 			value = convertToType(type, settings[path][ATTRIB][DEFAULT])
 			return value
 		except:
-			tracing.log.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
+			logger.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
 	## Dbus method SetDefault.
@@ -285,7 +293,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settings
 		
-		tracing.log.info('SetDefault %s' % self._object_path)
+		logger.info('SetDefault %s' % self._object_path)
 		try:
 			path = self._object_path
 			if path in groups:
@@ -297,7 +305,7 @@ class MyDbusObject(dbus.service.Object):
 				self.SetValue(settings[path][ATTRIB][DEFAULT])
 			return 0
 		except:
-			tracing.log.error('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
+			logger.error('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
 	## Dbus method GetSilent.
@@ -306,7 +314,7 @@ class MyDbusObject(dbus.service.Object):
 	def GetSilent(self):
 		global settings
 
-		tracing.log.debug('GetSilent %s' % self._object_path)
+		logger.debug('GetSilent %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
@@ -314,7 +322,7 @@ class MyDbusObject(dbus.service.Object):
 			value = settings[path][ATTRIB].get(SILENT) == 'True'
 			return 1 if value else 0
 		except:
-			tracing.log.error('Could not get silent property for %s %s' % (path, settings[path][ATTRIB].items()))
+			logger.error('Could not get silent property for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
 	## Dbus method AddSetting.
@@ -346,7 +354,7 @@ class MyDbusObject(dbus.service.Object):
 		global myDbusServices
 		global settingsAdded
 
-		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
+		logger.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 		if self._object_path not in groups:
 			return -1
 
@@ -411,7 +419,7 @@ class MyDbusObject(dbus.service.Object):
 
 		settings[itemPath] = [0, {}]
 		settings[itemPath][ATTRIB] = attributes
-		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
+		logger.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
 		myDbusObject._setValue(value, printLog=False, sendAttributes=True)
 		settingsAdded = True
 		self._startTimeoutSaveSettings()
@@ -444,7 +452,7 @@ def saveSettingsCallback():
 	global myDbusMainGroupService
 	global settingsAdded
 
-	tracing.log.debug('Saving settings to file')
+	logger.debug('Saving settings to file')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
 	parseDictonaryToXmlFile(settings, fileSettings)
@@ -471,15 +479,16 @@ def convertToType(type, value):
 # @param arrayGroups The array for the groups.
 # @param filter A filter used for filtering in settingchanges.xml for example "Add".
 def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups, filter):
+	
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
-	tracing.log.debug('parseXmlFileToDictonary %s:' % file)
+	logger.debug('parseXmlFileToDictonary %s:' % file)
 	docinfo = tree.docinfo
-	tracing.log.debug("docinfo version %s" % docinfo.xml_version)
-	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
-	tracing.log.debug("settings version %s" % root.attrib)
-	tracing.log.debug(etree.tostring(root))
+	logger.debug("docinfo version %s" % docinfo.xml_version)
+	logger.debug("docinfo encoding %s" % docinfo.encoding)
+	logger.debug("settings version %s" % root.attrib)
+	logger.debug(etree.tostring(root))
 	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups, filter)
 
 ## Method for parsing a xml-element to a dbus-object-path.
@@ -524,7 +533,7 @@ def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
 # @param dictonary The dictonary with the settings.
 # @param file The filename.
 def parseDictonaryToXmlFile(dictonary, file):
-	tracing.log.debug('parseDictonaryToXmlFile %s' % file)
+	logger.debug('parseDictonaryToXmlFile %s' % file)
 	root = None
 	for key in list(dictonary):
 		items = key.split('/')
@@ -558,7 +567,7 @@ def parseDictonaryToXmlFile(dictonary, file):
 	try:
 		rename(newFile, file)
 	except:
-		tracing.log.error('renaming new file to settings file failed')
+		logger.error('renaming new file to settings file failed')
 
 def to_bool(val):
 	if type(val) != str:
@@ -632,7 +641,7 @@ def loadSettingsDir(path, dictionary):
 		try:
 			loadSettingsFile(filename, dictionary)
 		except Exception as ex:
-			tracing.log.error('error loading %s: %s' %
+			logger.error('error loading %s: %s' %
 					  (filename, str(ex)))
 
 ## Handles the system (Linux / Windows) signals such as SIGTERM.
@@ -641,7 +650,7 @@ def loadSettingsDir(path, dictionary):
 # @param signum the signal-number.
 # @param stack the call-stack.
 def handlerSignals(signum, stack):
-	tracing.log.warning('handlerSignals received: %d' % signum)
+	logger.warning('handlerSignals received: %d' % signum)
 	exitCode = 0
 	if signum == signal.SIGHUP:
 		exitCode = 1
@@ -729,6 +738,7 @@ def run():
 	global traceFileName
 	global traceDebugOn
 	global myDbusMainGroupService
+	global logger
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -738,16 +748,40 @@ def run():
 	newFileSettings = pathSettings + newFileSettings
 	
 	# setup debug traces.
-	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
-	tracing.log.debug('tracingPath = %s' % pathTraces)
+	logger = logging.getLogger('localsettings victron applicaiton')
+	#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+	formatter = logging.Formatter('%(levelname)s - %(message)s')
+	logger.setLevel(logging.INFO)
+
+	if traceDebugOn == 1:
+		logger.setLevel(logging.DEBUG)
+	
+	if traceToConsole == 1:
+		print ("log console activated")
+		ch = logging.StreamHandler()
+		ch.setFormatter(formatter)
+		ch.setLevel(logging.DEBUG)
+		logger.addHandler(ch)
+		
+		
+	if traceToFile == 1 :
+		fh = logging.FileHandler('trace.log')
+		fh.setFormatter(formatter)
+		fh.setLevel(logging.DEBUG)
+		print ("tracefilename:")
+		print (traceFileName + traceFileName)
+		logger.addHandler(fh)
+	
+	#tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
+	logger.debug('tracingPath = %s' % pathTraces)
 
 	# Print the logscript version
-	tracing.log.info('Localsettings version is: 0x%04x' % version)
-	tracing.log.info('Localsettings PID is: %d' % getpid())
+	logger.info('Localsettings version is: 0x%04x' % version)
+	logger.info('Localsettings PID is: %d' % getpid())
 	
 	# Trace the python version.
 	pythonVersion = platform.python_version()
-	tracing.log.debug('Current python version: %s' % pythonVersion)
+	logger.debug('Current python version: %s' % pythonVersion)
 
 	# setup signal handling.
 	signal.signal(signal.SIGHUP, handlerSignals) # 1: Hangup detected
@@ -763,17 +797,17 @@ def run():
 		sys.exit(errno.ENOENT)
 
 	if path.isfile(newFileSettings):
-		tracing.log.info('New settings file exist')
+		logger.info('New settings file exist')
 		try:
 			tree = etree.parse(newFileSettings)
 			root = tree.getroot()
-			tracing.log.info('New settings file %s validated' % newFileSettings)
+			logger.info('New settings file %s validated' % newFileSettings)
 			rename(newFileSettings, fileSettings)
-			tracing.log.info('renamed new settings file to settings file')
+			logger.info('renamed new settings file to settings file')
 		except:
-			tracing.log.error('New settings file %s invalid' % newFileSettings)
+			logger.error('New settings file %s invalid' % newFileSettings)
 			remove(newFileSettings)
-			tracing.log.error('%s removed' % newFileSettings)
+			logger.error('%s removed' % newFileSettings)
 
 	if path.isfile(fileSettings):
 		# Try to validate the settings file.
@@ -781,64 +815,64 @@ def run():
 			tree = etree.parse(fileSettings)
 			root = tree.getroot()
 			migrate_can_profile(tree)
-			tracing.log.info('Settings file %s validated' % fileSettings)
+			logger.info('Settings file %s validated' % fileSettings)
 		except:
-			tracing.log.error('Settings file %s invalid' % fileSettings)
+			logger.error('Settings file %s invalid' % fileSettings)
 			remove(fileSettings)
-			tracing.log.error('%s removed' % fileSettings)
+			logger.error('%s removed' % fileSettings)
 
 	# check if settings file is present, if not exit create a "empty" settings file.
 	if not path.isfile(fileSettings):
-		tracing.log.warning('Settings file %s not found' % fileSettings)
+		logger.warning('Settings file %s not found' % fileSettings)
 		root = etree.Element(settingsRootName)
 		root.set(settingsTag, settingsVersion)
 		tree = etree.ElementTree(root)
 		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
-		tracing.log.warning('Created settings file %s' % fileSettings)
+		logger.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
 	parseXmlFileToDictonary(fileSettings, settings, groups, None)
-	tracing.log.debug('settings:')
-	tracing.log.debug(settings.items())
-	tracing.log.debug('groups:')
-	tracing.log.debug(groups)
+	logger.debug('settings:')
+	logger.debug(settings.items())
+	logger.debug('groups:')
+	logger.debug(groups)
 
 	# check if new settings must be changed
 	if path.isfile(fileSettingChanges):
 		# process the settings which must be deleted.
 		delSettings = {}
 		parseXmlFileToDictonary(fileSettingChanges, delSettings, None, "/Change/Delete")
-		tracing.log.debug('setting to delete:')
-		tracing.log.debug(delSettings.items())
+		logger.debug('setting to delete:')
+		logger.debug(delSettings.items())
 		for item in delSettings:
 			if item in settings:
-				tracing.log.debug('delete item %s' % item)
+				logger.debug('delete item %s' % item)
 				del settings[item]
 				saveChanges = True
 
 		# process the settings which must be added.
 		addSettings = {}
 		parseXmlFileToDictonary(fileSettingChanges, addSettings, None, "/Change/Add")
-		tracing.log.debug('setting to add:')
-		tracing.log.debug(addSettings.items())
+		logger.debug('setting to add:')
+		logger.debug(addSettings.items())
 		saveChanges = False
 		for item in addSettings:
 			if not item in settings:
-				tracing.log.debug('add item %s' % item)
+				logger.debug('add item %s' % item)
 				settings[item] = addSettings[item]
 				saveChanges = True
 
 		if saveChanges == True:
-			tracing.log.warning('Change settings according to %s' % fileSettingChanges)
+			logger.warning('Change settings according to %s' % fileSettingChanges)
 			parseDictonaryToXmlFile(settings, fileSettings)
 			# update settings and groups from file.
 			settings = {}
 			groups = []
 			parseXmlFileToDictonary(fileSettings, settings, groups, None)
-			tracing.log.debug('settings:')
-			tracing.log.debug(settings.items())
-			tracing.log.debug('groups:')
-			tracing.log.debug(groups)
+			logger.debug('settings:')
+			logger.debug(settings.items())
+			logger.debug('groups:')
+			logger.debug(groups)
 			remove(fileSettingChanges)
 
 	# For a PC, connect to the SessionBus
@@ -864,6 +898,7 @@ def usage():
 	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
 	print("--banner\tshows program-name and version at startup")
+	print ("--verbose\tSpeak like my mother")
 	print("--path=dir\tuse given dir as data directory instead of /data")
 	print("")
 	print("NOTE FOR DEBUGGING ON DESKTOP")
@@ -878,11 +913,9 @@ def main(argv):
 	global pathSettings
 	global timeoutSaveSettingsTime
 
-	tracingEnabled = True
-	traceToConsole = True
 
 	try:
-		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path=", "no-delay"])
+		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path=", "no-delay","verbose"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(errno.EINVAL)
@@ -895,9 +928,9 @@ def main(argv):
 			traceToFile = True
 		elif opt == '-d':
 			traceDebugOn = True
-		elif opt == '-v' or opt == '--version':
-			print(version)
-			sys.exit()
+		elif opt == '--verbose':
+			tracingEnabled = True
+			traceToConsole = True
 		elif opt == '--path':
 			pathSettings = arg
 			if pathSettings[-1] != '/':
@@ -905,6 +938,9 @@ def main(argv):
 		elif opt == '--no-delay':
 			print("no delay")
 			timeoutSaveSettingsTime = 0
+		elif (opt == '-v' or opt == '--version'):
+			print(version)
+			sys.exit()
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
