@@ -139,3 +139,11 @@ running the localsettings script has write access to this directory. Alternative
 adjust the script in order to set a different directory. In localsettings.py look for:
 
 pathSettings = '/data/conf/'
+
+## Running on cygwin
+Similar to Running on a linux PC
+
+  dbus-launch.exe ./localsettings.py --verbose -d -t
+  
+  
+
