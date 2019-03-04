@@ -141,9 +141,12 @@ adjust the script in order to set a different directory. In localsettings.py loo
 pathSettings = '/data/conf/'
 
 ## Running on cygwin
-Similar to Running on a linux PC
+Similar to Running on a linux PC. 
+Dbus should be installed.
 
-  dbus-launch.exe ./localsettings.py --verbose -d -t
+To start localsettings use the following command :
+
+    dbus-launch.exe ./localsettings.py --verbose -d -t
   
   
 
