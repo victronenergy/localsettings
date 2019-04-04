@@ -32,7 +32,7 @@
 # is processed at startup and then deleted.
 #
 
-##  
+##
 
 
 # Python imports
@@ -140,7 +140,7 @@ class MyDbusObject(dbus.service.Object):
 	# @param objectPath The dbus-object-path (e.g. '/Settings/Logging/LogInterval').
 	def __init__(self, busName, objectPath):
 		dbus.service.Object.__init__(self, busName, objectPath)
-	
+
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
 	# When the object-path is a group a -1 is returned.
@@ -149,7 +149,7 @@ class MyDbusObject(dbus.service.Object):
 	def GetValue(self):
 		global settings
 		global groups
-		
+
 		tracing.log.debug('GetValue %s' % self._object_path)
 		if self._object_path in groups:
 			prefix = self._object_path + '/'
@@ -158,7 +158,7 @@ class MyDbusObject(dbus.service.Object):
 				if k.startswith(prefix) and len(k)>len(prefix) },
 				signature=dbus.Signature('sv'), variant_level=1)
 		return settings[self._object_path][VALUE]
-	
+
 	## Dbus method GetText
 	# Returns the value as string of the dbus-object-path (the settings).
 	# When the object-path is a group a '' is returned.
@@ -180,7 +180,7 @@ class MyDbusObject(dbus.service.Object):
 	def SetValue(self, value):
 		global settings
 		global supportedTypes
-		
+
 		tracing.log.debug('SetValue %s' % self._object_path)
 		if self._object_path in groups:
 			return -1
@@ -263,7 +263,7 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
 		global settings
-		
+
 		tracing.log.info('GetDefault %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
@@ -284,7 +284,7 @@ class MyDbusObject(dbus.service.Object):
 	def SetDefault(self):
 		global myDbusServices
 		global settings
-		
+
 		tracing.log.info('SetDefault %s' % self._object_path)
 		try:
 			path = self._object_path
@@ -320,7 +320,7 @@ class MyDbusObject(dbus.service.Object):
 	## Dbus method AddSetting.
 	# Add a new setting by the given parameters. The object-path must be a group.
 	# Example 1: dbus /Settings AddSetting Groupname Settingname 100 i 0 100
-	# Example 2: dbus /Settings AddSetting Groupname Settingname '/home/root' s 0 0 
+	# Example 2: dbus /Settings AddSetting Groupname Settingname '/home/root' s 0 0
 	# When the new setting is of type string the minimum and maximum will be ignored.
 	# @param group The group-name.
 	# @param name The setting-name.
@@ -759,7 +759,7 @@ def run():
 	fileSettings = pathSettings + fileSettings
 	fileSettingChanges = pathSettings + fileSettingChanges
 	newFileSettings = pathSettings + newFileSettings
-	
+
 	# setup debug traces.
 	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
 	tracing.log.debug('tracingPath = %s' % pathTraces)
@@ -767,7 +767,7 @@ def run():
 	# Print the logscript version
 	tracing.log.info('Localsettings version is: 0x%04x' % version)
 	tracing.log.info('Localsettings PID is: %d' % getpid())
-	
+
 	# Trace the python version.
 	pythonVersion = platform.python_version()
 	tracing.log.debug('Current python version: %s' % pythonVersion)
@@ -945,5 +945,5 @@ def main(argv):
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
 	run()
-	
+
 main(sys.argv[1:])
