@@ -655,11 +655,18 @@ def delete_from_tree(tree, path):
 		return
 	obj[0].getparent().remove(obj[0])
 
-## Migrate old canbus settings
-def migrate_can_profile(tree):
+def save(tree):
 	global fileSettings
 	global newFileSettings
 
+	with open(newFileSettings, 'wb') as fp:
+		tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+		fp.flush()
+		os.fsync(fp.fileno())
+		rename(newFileSettings, fileSettings)
+
+## Migrate old canbus settings
+def migrate_can_profile(tree):
 	if not os.path.isfile("/etc/venus/canbus_ports"):
 		return
 
@@ -705,8 +712,7 @@ def migrate_can_profile(tree):
 	delete_from_tree(tree, "/Settings/Services/OceanvoltValence")
 	delete_from_tree(tree, "/Settings/Services/VeCan")
 
-	tree.write(newFileSettings, pretty_print = True, xml_declaration = True, encoding = settingsEncoding)
-	rename(newFileSettings, fileSettings)
+	save(tree)
 
 ## The main function.
 def run():
@@ -793,7 +799,7 @@ def run():
 		root = etree.Element(settingsRootName)
 		root.set(settingsTag, settingsVersion)
 		tree = etree.ElementTree(root)
-		tree.write(fileSettings, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+		save(tree)
 		tracing.log.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
