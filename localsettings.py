@@ -786,8 +786,20 @@ def run():
 		try:
 			tree = etree.parse(fileSettings)
 			root = tree.getroot()
+			# NOTE: there used to be a 1.0 version once upon a time an no version at all
+			# in really old version. Since it is easier to compare integers only use the
+			# major part.
+			loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
+			loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
+
 			migrate_can_profile(tree)
 			tracing.log.info('Settings file %s validated' % fileSettings)
+
+			if loadedVersionTxt != settingsVersion:
+				print("Updating version to " + settingsVersion)
+				root.set(settingsTag, settingsVersion)
+				save(tree)
+
 		except:
 			tracing.log.error('Settings file %s invalid' % fileSettings)
 			remove(fileSettings)
