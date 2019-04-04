@@ -123,7 +123,7 @@ sysSettingsDir = '/etc/venus/settings.d'
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
-settingsVersion = '1.0'
+settingsVersion = '2'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
 
@@ -714,6 +714,23 @@ def migrate_can_profile(tree):
 
 	save(tree)
 
+def migrate_remote_support(tree, version):
+	if version != 1:
+		return
+
+	if tree.xpath("/Settings/System/RemoteSupport/text()") != ["1"]:
+		return
+
+	print("Enable ssh on LAN since it was enabled by RemoteSupport")
+	settings = tree.getroot()
+	system = settings.find("System")
+	if system == None:
+		system = system.SubElement(settings, "System")
+
+	prof = etree.SubElement(system, "SSHLocal")
+	prof.text = "1"
+	prof.set('type', 'i')
+
 ## The main function.
 def run():
 	global bus
@@ -793,6 +810,7 @@ def run():
 			loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
 
 			migrate_can_profile(tree)
+			migrate_remote_support(tree, loadedVersion)
 			tracing.log.info('Settings file %s validated' % fileSettings)
 
 			if loadedVersionTxt != settingsVersion:
