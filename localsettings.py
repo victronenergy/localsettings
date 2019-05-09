@@ -78,7 +78,7 @@ dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
 InterfaceSettings = 'com.victronenergy.Settings'
 
-## The dictonary's containing the settings and the groups.
+## The dictionaries containing the settings and the groups.
 settings = {}
 groups = []
 
@@ -131,8 +131,6 @@ settingsRootName = 'Settings'
 settingsAdded = False
 
 class MyDbusObject(dbus.service.Object):
-	global InterfaceBusItem
-
 	## Constructor of MyDbusObject
 	#
 	# Creates the dbus-object under the given bus-name (dbus-service-name).
@@ -179,7 +177,6 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
 	def SetValue(self, value):
 		global settings
-		global supportedTypes
 
 		tracing.log.debug('SetValue %s' % self._object_path)
 		if self._object_path in groups:
@@ -372,7 +369,7 @@ class MyDbusObject(dbus.service.Object):
 			if type(value) != str:
 				min = convertToType(itemType, minimum)
 				max = convertToType(itemType, maximum)
-				if min is 0 and max is 0:
+				if min == 0 and max == 0:
 					attributes = {TYPE:str(itemType), DEFAULT:str(value)}
 				elif value >= min and value <= max:
 					attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
@@ -436,7 +433,7 @@ class RootObject(dbus.service.Object):
 
 
 ## The callback method for saving the settings-xml-file.
-# Calls the parseDictonaryToXmlFile with the dictonary settings and settings-xml-filename.
+# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
 def saveSettingsCallback():
 	global timeoutSaveSettingsEventId
 	global settings
@@ -447,8 +444,8 @@ def saveSettingsCallback():
 	tracing.log.debug('Saving settings to file')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
-	parseDictonaryToXmlFile(settings, fileSettings)
-	if settingsAdded is True:
+	parseDictionaryToXmlFile(settings, fileSettings)
+	if settingsAdded:
 		settingsAdded = False
 		myDbusMainGroupService.ObjectPathsChanged()
 
@@ -463,39 +460,39 @@ def convertToType(type, value):
 	else:
 		return value
 
-## Method for parsing the file to the given dictonary.
-# The dictonary will be in following format {dbus-object-path, [value, {attributes}]}.
+## Method for parsing the file to the given dictionary.
+# The dictionary will be in following format {dbus-object-path, [value, {attributes}]}.
 # When a array is given for the groups, the found groups are appended.
 # @param file The filename (path can be included, e.g. /home/root/localsettings/settings.xml).
-# @param dictonaryItems The dictonary for the settings.
+# @param dictionaryItems The dictionary for the settings.
 # @param arrayGroups The array for the groups.
 # @param filter A filter used for filtering in settingchanges.xml for example "Add".
-def parseXmlFileToDictonary(file, dictonaryItems, arrayGroups, filter):
+def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups, filter):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
-	tracing.log.debug('parseXmlFileToDictonary %s:' % file)
+	tracing.log.debug('parseXmlFileToDictionary %s:' % file)
 	docinfo = tree.docinfo
 	tracing.log.debug("docinfo version %s" % docinfo.xml_version)
 	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
 	tracing.log.debug("settings version %s" % root.attrib)
 	tracing.log.debug(etree.tostring(root))
-	parseXmlToDictonary(root, '/', dictonaryItems, arrayGroups, filter)
+	parseXmlToDictionary(root, '/', dictionaryItems, arrayGroups, filter)
 
 ## Method for parsing a xml-element to a dbus-object-path.
 # The dbus-object-path can be a setting (contains a text-value) or 
 # a group. Only for a setting attributes are added.
 # @param element The lxml-Element from the ElementTree API.
 # @param path The path of the element.
-# @param dictonaryItems The dictonary for the settings.
+# @param dictionaryItems The dictionary for the settings.
 # @param arrayGroups The array for the groups.
 # @param filter A filter used for filtering in settingchanges.xml for example "Add".
-def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
+def parseXmlToDictionary(element, path, dictionaryItems, arrayGroups, filter):
 	if path != '/':
 		path += '/'
 	path += element.tag
 	for child in element:
-		parseXmlToDictonary(child, path, dictonaryItems, arrayGroups, filter)
+		parseXmlToDictionary(child, path, dictionaryItems, arrayGroups, filter)
 
 	if filter == None or path.startswith(filter) == True:
 		if filter != None:
@@ -514,19 +511,19 @@ def parseXmlToDictonary(element, path, dictonaryItems, arrayGroups, filter):
 			if not element.text:
 				text = ''
 			value = convertToType(elementType, text)
-			dictonaryItems[objectPath] = [value, element.attrib]
+			dictionaryItems[objectPath] = [value, element.attrib]
 		elif arrayGroups != None:
 			if not objectPath in arrayGroups:
 				arrayGroups.append(objectPath)
 
-## Method for parsing a dictonary to a giving xml-file.
-# The dictonary must be in following format {dbus-object-path, [value, {attributes}]}.
-# @param dictonary The dictonary with the settings.
+## Method for parsing a dictionary to a giving xml-file.
+# The dictionary must be in following format {dbus-object-path, [value, {attributes}]}.
+# @param dictionary The dictionary with the settings.
 # @param file The filename.
-def parseDictonaryToXmlFile(dictonary, file):
-	tracing.log.debug('parseDictonaryToXmlFile %s' % file)
+def parseDictionaryToXmlFile(dictionary, file):
+	tracing.log.debug('parseDictionaryToXmlFile %s' % file)
 	root = None
-	for key in list(dictonary):
+	for key, _value in dictionary.iteritems():
 		items = key.split('/')
 		items.remove('')
 		if root == None:
@@ -545,8 +542,8 @@ def parseDictonaryToXmlFile(dictonary, file):
 				elem = etree.SubElement(elem, item)
 			else:
 				elem = foundElem
-		elem.text = str(dictonary[key][VALUE])
-		attributes = dictonary[key][ATTRIB]
+		elem.text = str(_value[VALUE])
+		attributes = _value[ATTRIB]
 		for attribute, value in attributes.iteritems():
 			elem.set(attribute, str(value))
 	newFile = file + newFileExtension
@@ -833,7 +830,7 @@ def run():
 		tracing.log.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
-	parseXmlFileToDictonary(fileSettings, settings, groups, None)
+	parseXmlFileToDictionary(fileSettings, settings, groups, None)
 	tracing.log.debug('settings:')
 	tracing.log.debug(settings.items())
 	tracing.log.debug('groups:')
@@ -843,7 +840,7 @@ def run():
 	if path.isfile(fileSettingChanges):
 		# process the settings which must be deleted.
 		delSettings = {}
-		parseXmlFileToDictonary(fileSettingChanges, delSettings, None, "/Change/Delete")
+		parseXmlFileToDictionary(fileSettingChanges, delSettings, None, "/Change/Delete")
 		tracing.log.debug('setting to delete:')
 		tracing.log.debug(delSettings.items())
 		for item in delSettings:
@@ -854,7 +851,7 @@ def run():
 
 		# process the settings which must be added.
 		addSettings = {}
-		parseXmlFileToDictonary(fileSettingChanges, addSettings, None, "/Change/Add")
+		parseXmlFileToDictionary(fileSettingChanges, addSettings, None, "/Change/Add")
 		tracing.log.debug('setting to add:')
 		tracing.log.debug(addSettings.items())
 		saveChanges = False
@@ -866,11 +863,11 @@ def run():
 
 		if saveChanges == True:
 			tracing.log.warning('Change settings according to %s' % fileSettingChanges)
-			parseDictonaryToXmlFile(settings, fileSettings)
+			parseDictionaryToXmlFile(settings, fileSettings)
 			# update settings and groups from file.
 			settings = {}
 			groups = []
-			parseXmlFileToDictonary(fileSettings, settings, groups, None)
+			parseXmlFileToDictionary(fileSettings, settings, groups, None)
 			tracing.log.debug('settings:')
 			tracing.log.debug(settings.items())
 			tracing.log.debug('groups:')
@@ -889,7 +886,7 @@ def run():
 	for group in groups:
 		myDbusObject = MyDbusObject(busName, group)
 		myDbusGroupServices.append(myDbusObject)
-	myDbusMainGroupService = myDbusGroupServices[0]
+	myDbusMainGroupService = myDbusGroupServices[-1]
 
 	MainLoop().run()
 
