@@ -49,6 +49,7 @@ import errno
 import platform
 import os
 import re
+from collections import defaultdict
 
 # Victron imports
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
@@ -129,6 +130,24 @@ settingsRootName = 'Settings'
 
 ## Indicates if settings are added
 settingsAdded = False
+
+class bidict(dict):
+	""" A bi-directional dictionary that maintains a 1:1 mapping. """
+	nothing = object()
+	def __init__(self, *args, **kwargs):
+		super(bidict, self).__init__(*args, **kwargs)
+		self.reverse = { v: k for k, v in self.iteritems() }
+	def __setitem__(self, key, value):
+		oldvalue = self.get(key, self.nothing)
+		if value != oldvalue and value in self.reverse:
+			raise ValueError("duplicate")
+		if oldvalue is not self.nothing and oldvalue in self.reverse:
+			del self.reverse[oldvalue]
+		super(bidict, self).__setitem__(key, value)
+		self.reverse[value] = key
+	def __delitem__(self, key):
+		del self.reverse[self[key]]
+		super(bidict, self).__delitem__(key)
 
 class MyDbusObject(dbus.service.Object):
 	## Constructor of MyDbusObject
@@ -328,11 +347,11 @@ class MyDbusObject(dbus.service.Object):
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
-		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)
+		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)[0]
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSilentSetting(self, group, name, defaultValue, itemType, minimum, maximum):
-		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)
+		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
 
 	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
 		global groups
@@ -345,7 +364,7 @@ class MyDbusObject(dbus.service.Object):
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 		if self._object_path not in groups:
-			return -1
+			return -1, None
 
 		if group.startswith('/') or group == '':
 			groupPath = self._object_path + str(group)
@@ -359,10 +378,10 @@ class MyDbusObject(dbus.service.Object):
 
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in itemPath:
-			return -2
+			return -2, None
 
 		if itemType not in supportedTypes:
-			return -3
+			return -3, None
 
 		try:
 			value = convertToType(itemType, defaultValue)
@@ -377,7 +396,7 @@ class MyDbusObject(dbus.service.Object):
 				attributes = {TYPE:str(itemType), DEFAULT:str(value)}
 			attributes[SILENT] = str(silent)
 		except:
-			return -4
+			return -4, None
 
 		if not groupPath in groups:
 			groups.append(groupPath)
@@ -391,7 +410,7 @@ class MyDbusObject(dbus.service.Object):
 		else:
 			# Existing setting
 			if settings[itemPath][ATTRIB][TYPE] != attributes[TYPE]:
-				return -5
+				return -5, None
 
 			for service in myDbusServices:
 				if service._object_path == itemPath:
@@ -401,7 +420,7 @@ class MyDbusObject(dbus.service.Object):
 			unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
 			if len(unmatched) == 0:
 				# There are no changes
-				return 0
+				return 0, myDbusObject
 
 			# There are changes, save them while keeping the current value.
 			value = settings[itemPath][VALUE]
@@ -412,7 +431,7 @@ class MyDbusObject(dbus.service.Object):
 		myDbusObject._setValue(value, printLog=False, sendAttributes=True)
 		settingsAdded = True
 		self._startTimeoutSaveSettings()
-		return 0
+		return 0, myDbusObject
 
 
 # This object will send an overview of all available D-Bus paths and their values in the settings service if
@@ -431,6 +450,65 @@ class RootObject(dbus.service.Object):
 		values = dict((k[1:], str(v[VALUE])) for k, v in settings.iteritems())
 		return values
 
+# This object allocates a device instance given a device class, a unique string
+# (serial number), and a preferred instance number
+class DeviceInstanceMapper(dbus.service.Object):
+	settings_prefix = '/Settings/DeviceInstances/'
+	def __init__(self, busname, settings, maingroup):
+		dbus.service.Object.__init__(self, busname, '/Services/DeviceInstances')
+		self.settings = settings
+		self.maingroup = maingroup
+
+	def allocations(self):
+		# This deliberately sources the allocations from the main settings
+		# in a somewhat inefficient manner. DeviceInstances are infrequently
+		# requested, and this simplifies the implementation and tracking
+		# changes becomes unnecessary. The number of settings to be traversed
+		# is also limited.
+		result = defaultdict(bidict)
+		for k, v in self.settings.iteritems():
+			if not k.startswith(self.settings_prefix): continue
+			parts = k.split('/')
+			klass, identifier = parts[3], parts[4]
+			try:
+				result[klass][v[VALUE]] = identifier
+			except ValueError:
+				# Ignore duplicates
+				pass
+		return result
+
+	def allocate(self, device_class, instance, identifier):
+		path = '/'.join(['DeviceInstances', device_class, identifier])
+		_, ob = self.maingroup.addSetting(path, 'DeviceInstance', -1, 'i', 0, 0, False)
+		ob._setValue(instance, printLog=False, sendAttributes=True)
+
+	@dbus.service.method(InterfaceSettings, in_signature = 'ssi', out_signature = 'i')
+	def GetDeviceInstance(self, identifier, device_class, preferred_instance):
+		# device_class must be a valid XML name
+		valid = re.compile('^[A-Za-z0-9_]+$')
+		if None not in (valid.match(device_class), valid.match(identifier)):
+			data = self.allocations()[device_class]
+			# First check if preferred instance matches our allocation
+			if data.get(preferred_instance, None) == identifier:
+				return preferred_instance
+
+			# Check if we previously allocated another DeviceInstance to this
+			# same device
+			if identifier in data.reverse:
+				return data.reverse[identifier]
+
+			# Allocate the preferred instance if it is available
+			if preferred_instance not in data:
+				self.allocate(device_class, preferred_instance, identifier)
+				return preferred_instance
+
+			# Preferred is not available, use the next available one.
+			new_instance = max(data.iterkeys()) + 1
+			self.allocate(device_class, new_instance, identifier)
+			return new_instance
+
+		# Could not allocate Deviceinstance
+		return -1
 
 ## The callback method for saving the settings-xml-file.
 # Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
@@ -887,6 +965,7 @@ def run():
 		myDbusObject = MyDbusObject(busName, group)
 		myDbusGroupServices.append(myDbusObject)
 	myDbusMainGroupService = myDbusGroupServices[-1]
+	device_instance_mapper = DeviceInstanceMapper(busName, settings, myDbusMainGroupService)
 
 	MainLoop().run()
 
