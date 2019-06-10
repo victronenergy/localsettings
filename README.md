@@ -62,6 +62,26 @@ See source code
 #### SetDefault
 See source code
 
+#### GetDeviceInstance
+Call this function on the /Services/DeviceInstances path.
+
+Parameters:
+- Unique-Id (a serial number or some other unique identifying string)
+- device class (battery,solarcharger,grid, the third component in the service
+  name)
+- Preferred instance number (the device instance that is preferred, an integer)
+
+Return value:
+* \>= 0, the allocated device instance number
+* -1 = Error
+
+Notes:
+* The unique-id must be an alphanumerical string (underscores allowed).
+* If the preferred device instance number is not available, the next available
+  number that is greater than the requested number will be returned.
+* Actual deviceinstance allocations are stored in `/Settings/DeviceInstances
+/{class}/{unique-id}/DeviceInstance`.
+
 ## Usage examples and libraries
 ### Command line
 Typical implementation in your code in case you want some settings would be:
