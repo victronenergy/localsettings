@@ -487,14 +487,11 @@ class DeviceInstanceMapper(dbus.service.Object):
 		valid = re.compile('^[A-Za-z0-9_]+$')
 		if None not in (valid.match(device_class), valid.match(identifier)):
 			data = self.allocations()[device_class]
-			# First check if preferred instance matches our allocation
-			if data.get(preferred_instance, None) == identifier:
-				return preferred_instance
 
-			# Check if we previously allocated another DeviceInstance to this
-			# same device
-			if identifier in data.reverse:
-				return data.reverse[identifier]
+			# Check if we previously allocated a DeviceInstance for this device
+			instance = data.reverse.get(identifier, None)
+			if instance is not None:
+				return instance
 
 			# Allocate the preferred one or one close to it.
 			for new_instance in xrange(preferred_instance, 0x7FFFFFFF):
