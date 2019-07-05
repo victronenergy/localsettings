@@ -496,15 +496,11 @@ class DeviceInstanceMapper(dbus.service.Object):
 			if identifier in data.reverse:
 				return data.reverse[identifier]
 
-			# Allocate the preferred instance if it is available
-			if preferred_instance not in data:
-				self.allocate(device_class, preferred_instance, identifier)
-				return preferred_instance
-
-			# Preferred is not available, use the next available one.
-			new_instance = max(data.iterkeys()) + 1
-			self.allocate(device_class, new_instance, identifier)
-			return new_instance
+			# Allocate the preferred one or one close to it.
+			for new_instance in xrange(preferred_instance, 0x7FFFFFFF):
+				if new_instance not in data:
+					self.allocate(device_class, new_instance, identifier)
+					return new_instance
 
 		# Could not allocate Deviceinstance
 		return -1
