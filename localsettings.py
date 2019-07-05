@@ -479,8 +479,7 @@ class DeviceInstanceMapper(dbus.service.Object):
 
 	def allocate(self, device_class, instance, identifier):
 		path = '/'.join(['DeviceInstances', device_class, identifier])
-		_, ob = self.maingroup.addSetting(path, 'DeviceInstance', -1, 'i', 0, 0, False)
-		ob._setValue(instance, printLog=False, sendAttributes=True)
+		self.maingroup.addSetting(path, 'DeviceInstance', instance, 'i', 0, 0x7FFFFFFF, False)
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssi', out_signature = 'i')
 	def GetDeviceInstance(self, identifier, device_class, preferred_instance):
