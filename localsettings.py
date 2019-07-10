@@ -450,12 +450,12 @@ class RootObject(dbus.service.Object):
 		values = dict((k[1:], str(v[VALUE])) for k, v in settings.iteritems())
 		return values
 
-# This object allocates a device instance given a device class, a unique string
+# This object allocates a VRM device instance given a device class, a unique string
 # (serial number), and a preferred instance number
-class DeviceInstanceMapper(dbus.service.Object):
-	settings_prefix = '/Settings/DeviceInstances/'
+class VrmDeviceInstanceMapper(dbus.service.Object):
+	settings_prefix = '/Settings/VrmDeviceInstances/'
 	def __init__(self, busname, settings, maingroup):
-		dbus.service.Object.__init__(self, busname, '/Services/DeviceInstances')
+		dbus.service.Object.__init__(self, busname, '/Services/VrmDeviceInstances')
 		self.settings = settings
 		self.maingroup = maingroup
 
@@ -478,11 +478,11 @@ class DeviceInstanceMapper(dbus.service.Object):
 		return result
 
 	def allocate(self, device_class, instance, identifier):
-		path = '/'.join(['DeviceInstances', device_class, identifier])
-		self.maingroup.addSetting(path, 'DeviceInstance', instance, 'i', 0, 0x7FFFFFFF, False)
+		path = '/'.join(['VrmDeviceInstances', device_class, identifier])
+		self.maingroup.addSetting(path, 'VrmDeviceInstance', instance, 'i', 0, 0x7FFFFFFF, False)
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssi', out_signature = 'i')
-	def GetDeviceInstance(self, identifier, device_class, preferred_instance):
+	def GetVrmDeviceInstance(self, identifier, device_class, preferred_instance):
 		# device_class must be a valid XML name
 		valid = re.compile('^[A-Za-z0-9_]+$')
 		if None not in (valid.match(device_class), valid.match(identifier)):
@@ -499,7 +499,7 @@ class DeviceInstanceMapper(dbus.service.Object):
 					self.allocate(device_class, new_instance, identifier)
 					return new_instance
 
-		# Could not allocate Deviceinstance
+		# Could not allocate VrmDeviceinstance
 		return -1
 
 ## The callback method for saving the settings-xml-file.
@@ -957,7 +957,7 @@ def run():
 		myDbusObject = MyDbusObject(busName, group)
 		myDbusGroupServices.append(myDbusObject)
 	myDbusMainGroupService = myDbusGroupServices[-1]
-	device_instance_mapper = DeviceInstanceMapper(busName, settings, myDbusMainGroupService)
+	vrm_device_instance_mapper = VrmDeviceInstanceMapper(busName, settings, myDbusMainGroupService)
 
 	MainLoop().run()
 

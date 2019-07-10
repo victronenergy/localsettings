@@ -62,11 +62,11 @@ See source code
 #### SetDefault
 See source code
 
-#### GetDeviceInstance
-Call this function on the /Services/DeviceInstances path.
+#### GetVrmDeviceInstance
+Call this function on the /Services/VrmDeviceInstances path.
 
 Parameters:
-- Unique-Id (a serial number or some other unique identifying string)
+- Unique-Id (e.g. protocol + a serial number or some other unique identifying string)
 - device class (battery,solarcharger,grid, the third component in the service
   name)
 - Preferred instance number (the device instance that is preferred, an integer)
@@ -78,8 +78,8 @@ Return value:
 Notes:
 * The unique-id must be an alphanumerical string (underscores allowed).
 * If the preferred device instance number is not available, the next available
-  number that is greater than the requested number will be returned.
-* Actual deviceinstance allocations are stored in `/Settings/DeviceInstances
+  number that is greater than the preferred number will be returned.
+* Actual deviceinstance allocations are stored in `/Settings/VrmDeviceInstances
 /{class}/{unique-id}/DeviceInstance`.
 
 ## Usage examples and libraries
