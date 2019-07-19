@@ -110,7 +110,7 @@ def migrate_mqtt(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/Services/Mqtt")
 	delete_from_tree(tree, "/Settings/Services/Vrmpubnub")
 
-	save(tree)
+	localSettings.save(tree)
 
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
