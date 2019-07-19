@@ -76,6 +76,43 @@ def migrate_remote_support(localSettings, tree, version):
 	prof.text = "1"
 	prof.set('type', 'i')
 
+def migrate_mqtt(localSettings, tree, version):
+	if version > 2:
+		return
+
+	settings = tree.getroot()
+	services = settings.find("Services")
+
+	mqtt_local = 0
+	mqtt_local_insec = 0
+	mqtt_vrm = 0
+
+	if tree.xpath("/Settings/Services/Mqtt/text()") == ["1"]:
+		mqtt_local = 1
+		mqtt_local_insec = 1
+		mqtt_vrm = 1
+
+	if tree.xpath("/Settings/Services/Vrmpubnub/text()") == ["1"]:
+		mqtt_vrm = 1
+
+	elem = etree.SubElement(services, "MqttLocal")
+	elem.text = str(mqtt_local)
+	elem.set("type", "i")
+
+	elem = etree.SubElement(services, "MqttLocalInsecure")
+	elem.text = str(mqtt_local_insec)
+	elem.set("type", "i")
+
+	elem = etree.SubElement(services, "MqttVrm")
+	elem.text = str(mqtt_vrm)
+	elem.set("type", "i")
+
+	delete_from_tree(tree, "/Settings/Services/Mqtt")
+	delete_from_tree(tree, "/Settings/Services/Vrmpubnub")
+
+	save(tree)
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
+	migrate_mqtt(localSettings, tree, version)
