@@ -159,7 +159,7 @@ class LocalSettingsTest(unittest.TestCase):
 			main_context.iteration(False)
 
 		self.assertEqual(self._called, ['com.victronenergy.settings', '/Settings/' + details['group'] + '/' + details['setting'],
-						{'Default': 103.0, 'Text': '103.0', 'Min': '2.0', 'Max': '1002.0', 'Value': 103}])
+						{'Default': 103.0, 'Text': '103.0', 'Min': 2.0, 'Max': 1002.0, 'Value': 103}])
 
 	def test_adding_new_settings_with_underscore_fails(self):
 		testsets = {

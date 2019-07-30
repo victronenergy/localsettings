@@ -226,14 +226,16 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMin(self):
 		if MIN in settings[self._object_path][ATTRIB]:
-			return settings[self._object_path][ATTRIB][MIN]
+			return convertToType(settings[self._object_path][ATTRIB][TYPE],
+				settings[self._object_path][ATTRIB][MIN])
 		else:
 			return 0
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMax(self):
 		if MAX in settings[self._object_path][ATTRIB]:
-			return settings[self._object_path][ATTRIB][MAX]
+			return convertToType(settings[self._object_path][ATTRIB][TYPE],
+				settings[self._object_path][ATTRIB][MAX])
 		else:
 			return 0
 
