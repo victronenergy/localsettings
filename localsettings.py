@@ -319,7 +319,7 @@ class MyDbusObject(dbus.service.Object):
 
 	## Dbus method GetSilent.
 	# @return 1 if the setting is silent, 0 is it is not. Returns -1 if an error occurred.
-	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
+	@dbus.service.method(InterfaceSettings, out_signature = 'i')
 	def GetSilent(self):
 		global settings
 
