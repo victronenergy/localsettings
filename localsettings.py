@@ -282,7 +282,6 @@ class MyDbusObject(dbus.service.Object):
 	def GetDefault(self):
 		global settings
 
-		tracing.log.info('GetDefault %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
@@ -324,7 +323,6 @@ class MyDbusObject(dbus.service.Object):
 	def GetSilent(self):
 		global settings
 
-		tracing.log.debug('GetSilent %s' % self._object_path)
 		path = self._object_path
 		if path in groups:
 			return -1
