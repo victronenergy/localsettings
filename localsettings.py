@@ -737,7 +737,10 @@ def save(tree):
 		rename(newFileSettings, fileSettings)
 
 ## Migrate old canbus settings
-def migrate_can_profile(tree):
+def migrate_can_profile(tree, version):
+	if version != 1:
+		return
+
 	if not os.path.isfile("/etc/venus/canbus_ports"):
 		return
 
@@ -880,7 +883,7 @@ def run():
 			loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
 			loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
 
-			migrate_can_profile(tree)
+			migrate_can_profile(tree, loadedVersion)
 			migrate_remote_support(tree, loadedVersion)
 			tracing.log.info('Settings file %s validated' % fileSettings)
 
