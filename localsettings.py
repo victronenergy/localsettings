@@ -333,6 +333,10 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.error('Could not get silent property for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
+	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
+	def GetAttributes(self):
+		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
+
 	## Dbus method AddSetting.
 	# Add a new setting by the given parameters. The object-path must be a group.
 	# Example 1: dbus /Settings AddSetting Groupname Settingname 100 i 0 100
