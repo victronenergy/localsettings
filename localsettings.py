@@ -286,30 +286,6 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
-	## Dbus method SetDefault.
-	# Sets the value of the setting to default. When the object-path is a group,
-	# it sets the default for all the settings in that group.
-	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
-	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
-	def SetDefault(self):
-		global myDbusServices
-		global settings
-
-		tracing.log.info('SetDefault %s' % self._object_path)
-		try:
-			path = self._object_path
-			if path in groups:
-				for service in myDbusServices:
-					servicePath = service._object_path
-					if path in servicePath:
-						service.SetValue(settings[servicePath][ATTRIB][DEFAULT])
-			else:
-				self.SetValue(settings[path][ATTRIB][DEFAULT])
-			return 0
-		except:
-			tracing.log.error('Could not set default for %s %s' % (path, settings[path][ATTRIB].items()))
-			return -1
-
 	## Dbus method GetSilent.
 	# @return 1 if the setting is silent, 0 is it is not. Returns -1 if an error occurred.
 	@dbus.service.method(InterfaceSettings, out_signature = 'i')
