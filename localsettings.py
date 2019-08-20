@@ -28,12 +28,6 @@
 # Example 4: <LogPath type="s" default=".">.</LogPath>
 # Settings or a group of settings can be set to default. A setting (and group) can be
 # added by means of dbus. And of course a setting can be changed by means of dbus.
-# By means of the file settingchanges.xml settings can be added or deleted. This file
-# is processed at startup and then deleted.
-#
-
-##
-
 
 # Python imports
 from dbus.mainloop.glib import DBusGMainLoop
@@ -114,7 +108,6 @@ timeoutSaveSettingsTime = 2 # Timeout value in seconds.
 
 ## File names.
 fileSettings = 'settings.xml'
-fileSettingChanges = 'settingchanges.xml'
 newFileExtension = '.new'
 newFileSettings = fileSettings + newFileExtension
 
@@ -540,8 +533,7 @@ def convertToType(type, value):
 # @param file The filename (path can be included, e.g. /home/root/localsettings/settings.xml).
 # @param dictionaryItems The dictionary for the settings.
 # @param arrayGroups The array for the groups.
-# @param filter A filter used for filtering in settingchanges.xml for example "Add".
-def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups, filter):
+def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
@@ -551,7 +543,7 @@ def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups, filter):
 	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
 	tracing.log.debug("settings version %s" % root.attrib)
 	tracing.log.debug(etree.tostring(root))
-	parseXmlToDictionary(root, '/', dictionaryItems, arrayGroups, filter)
+	parseXmlToDictionary(root, '/', dictionaryItems, arrayGroups)
 
 ## Method for parsing a xml-element to a dbus-object-path.
 # The dbus-object-path can be a setting (contains a text-value) or 
@@ -560,35 +552,26 @@ def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups, filter):
 # @param path The path of the element.
 # @param dictionaryItems The dictionary for the settings.
 # @param arrayGroups The array for the groups.
-# @param filter A filter used for filtering in settingchanges.xml for example "Add".
-def parseXmlToDictionary(element, path, dictionaryItems, arrayGroups, filter):
+def parseXmlToDictionary(element, path, dictionaryItems, arrayGroups):
 	if path != '/':
 		path += '/'
 	path += element.tag
 	for child in element:
-		parseXmlToDictionary(child, path, dictionaryItems, arrayGroups, filter)
+		parseXmlToDictionary(child, path, dictionaryItems, arrayGroups)
 
-	if filter == None or path.startswith(filter) == True:
-		if filter != None:
-			objectPath = path.replace(filter, '')
-			if objectPath == '':
-				return
-		else:
-			objectPath = path
+	# Remove possible underscore prefix
+	path = path.replace("/_", "/")
 
-		# Remove possible underscore prefix
-		objectPath = objectPath.replace("/_", "/")
-
-		if element.get('type') != None:
-			elementType = element.attrib[TYPE]
-			text = element.text
-			if not element.text:
-				text = ''
-			value = convertToType(elementType, text)
-			dictionaryItems[objectPath] = [value, element.attrib]
-		elif arrayGroups != None:
-			if not objectPath in arrayGroups:
-				arrayGroups.append(objectPath)
+	if element.get('type') != None:
+		elementType = element.attrib[TYPE]
+		text = element.text
+		if not element.text:
+			text = ''
+		value = convertToType(elementType, text)
+		dictionaryItems[path] = [value, element.attrib]
+	elif arrayGroups != None:
+		if not path in arrayGroups:
+			arrayGroups.append(path)
 
 ## Method for parsing a dictionary to a giving xml-file.
 # The dictionary must be in following format {dbus-object-path, [value, {attributes}]}.
@@ -802,7 +785,6 @@ def run():
 	global settings
 	global pathSettings
 	global fileSettings
-	global fileSettingChanges
 	global newFileSettings
 	global sysSettingsDir
 	global groups
@@ -819,7 +801,6 @@ def run():
 
 	# set the settings path
 	fileSettings = pathSettings + fileSettings
-	fileSettingChanges = pathSettings + fileSettingChanges
 	newFileSettings = pathSettings + newFileSettings
 
 	# setup debug traces.
@@ -889,49 +870,11 @@ def run():
 		tracing.log.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
-	parseXmlFileToDictionary(fileSettings, settings, groups, None)
+	parseXmlFileToDictionary(fileSettings, settings, groups)
 	tracing.log.debug('settings:')
 	tracing.log.debug(settings.items())
 	tracing.log.debug('groups:')
 	tracing.log.debug(groups)
-
-	# check if new settings must be changed
-	if path.isfile(fileSettingChanges):
-		# process the settings which must be deleted.
-		delSettings = {}
-		parseXmlFileToDictionary(fileSettingChanges, delSettings, None, "/Change/Delete")
-		tracing.log.debug('setting to delete:')
-		tracing.log.debug(delSettings.items())
-		for item in delSettings:
-			if item in settings:
-				tracing.log.debug('delete item %s' % item)
-				del settings[item]
-				saveChanges = True
-
-		# process the settings which must be added.
-		addSettings = {}
-		parseXmlFileToDictionary(fileSettingChanges, addSettings, None, "/Change/Add")
-		tracing.log.debug('setting to add:')
-		tracing.log.debug(addSettings.items())
-		saveChanges = False
-		for item in addSettings:
-			if not item in settings:
-				tracing.log.debug('add item %s' % item)
-				settings[item] = addSettings[item]
-				saveChanges = True
-
-		if saveChanges == True:
-			tracing.log.warning('Change settings according to %s' % fileSettingChanges)
-			parseDictionaryToXmlFile(settings, fileSettings)
-			# update settings and groups from file.
-			settings = {}
-			groups = []
-			parseXmlFileToDictionary(fileSettings, settings, groups, None)
-			tracing.log.debug('settings:')
-			tracing.log.debug(settings.items())
-			tracing.log.debug('groups:')
-			tracing.log.debug(groups)
-			remove(fileSettingChanges)
 
 	# For a PC, connect to the SessionBus
 	# For a CCGX, connect to the SystemBus
