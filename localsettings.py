@@ -286,22 +286,6 @@ class MyDbusObject(dbus.service.Object):
 			tracing.log.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
 			return -1
 
-	## Dbus method GetSilent.
-	# @return 1 if the setting is silent, 0 is it is not. Returns -1 if an error occurred.
-	@dbus.service.method(InterfaceSettings, out_signature = 'i')
-	def GetSilent(self):
-		global settings
-
-		path = self._object_path
-		if path in groups:
-			return -1
-		try:
-			value = settings[path][ATTRIB].get(SILENT) == 'True'
-			return 1 if value else 0
-		except:
-			tracing.log.error('Could not get silent property for %s %s' % (path, settings[path][ATTRIB].items()))
-			return -1
-
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
 		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
