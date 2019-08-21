@@ -94,8 +94,6 @@ supportedTypes = {
 		'f':float,
 }
 
-## The list of MyDbusService(s).
-myDbusServices = []
 myDbusGroupServices = []
 
 ## The main group dbus-service.
@@ -407,7 +405,6 @@ class GroupObject(dbus.service.Object):
 		global defaults
 		global busName
 		global myDbusGroupServices
-		global myDbusServices
 		global settingsAdded
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
@@ -457,16 +454,12 @@ class GroupObject(dbus.service.Object):
 			if self.getGroup(relativePath):
 				return -8, None
 			settingObject = self.createSettingObjectAndGroups(relativePath)
-			myDbusServices.append(settingObject)
 		else:
 			# Existing setting
 			if settings[itemPath][ATTRIB][TYPE] != attributes[TYPE]:
 				return -5, None
 
-			for service in myDbusServices:
-				if service._object_path == itemPath:
-					settingObject = service
-					break
+			settingObject = self.getSettingObject(relativePath)
 
 			unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
 			if len(unmatched) == 0:
@@ -837,7 +830,6 @@ def migrate_remote_support(tree, version):
 def run():
 	global bus
 	global dbusName
-	global myDbusServices
 	global myDbusGroupServices
 	global settings
 	global pathSettings
@@ -941,7 +933,6 @@ def run():
 
 	for setting in settings:
 		settingObject = root.createSettingObjectAndGroups(setting)
-		myDbusServices.append(settingObject)
 	for group in groups:
 		groupObject = root.createGroups(group)
 		myDbusGroupServices.append(groupObject)
