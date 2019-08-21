@@ -153,32 +153,20 @@ class MyDbusObject(dbus.service.Object):
 
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
-	# When the object-path is a group a -1 is returned.
 	# @return setting A setting value or -1 (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
 		global settings
-		global groups
 
-		tracing.log.debug('GetValue %s' % self._object_path)
-		if self._object_path in groups:
-			prefix = self._object_path + '/'
-			return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
-				for k, v in settings.iteritems() \
-				if k.startswith(prefix) and len(k)>len(prefix) },
-				signature=dbus.Signature('sv'), variant_level=1)
 		return settings[self._object_path][VALUE]
 
 	## Dbus method GetText
 	# Returns the value as string of the dbus-object-path (the settings).
-	# When the object-path is a group a '' is returned.
 	# @return setting A setting value or '' (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
 		global settings
 
-		if self._object_path in groups:
-			return ''
 		return str(settings[self._object_path][VALUE])
 
 	## Dbus method SetValue
@@ -190,9 +178,6 @@ class MyDbusObject(dbus.service.Object):
 	def SetValue(self, value):
 		global settings
 
-		tracing.log.debug('SetValue %s' % self._object_path)
-		if self._object_path in groups:
-			return -1
 		okToSave = True
 		v = value
 		path = self._object_path
@@ -252,10 +237,6 @@ class MyDbusObject(dbus.service.Object):
 	def PropertiesChanged(self, changes):
 		tracing.log.debug('signal PropertiesChanged')
 
-	@dbus.service.signal(InterfaceSettings, signature = '')
-	def ObjectPathsChanged(self):
-		tracing.log.debug('signal ObjectPathsChanged')
-
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
 	# the settings-xml-file is saved.
@@ -276,8 +257,6 @@ class MyDbusObject(dbus.service.Object):
 		global settings
 
 		path = self._object_path
-		if path in groups:
-			return -1
 		try:
 			type = settings[path][ATTRIB][TYPE]
 			value = convertToType(type, settings[path][ATTRIB][DEFAULT])
@@ -289,6 +268,10 @@ class MyDbusObject(dbus.service.Object):
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
 		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
+
+class GroupObject(dbus.service.Object):
+	def __init__(self, busname, path):
+		dbus.service.Object.__init__(self, busname, path)
 
 	## Dbus method AddSetting.
 	# Add a new setting by the given parameters. The object-path must be a group.
@@ -320,8 +303,6 @@ class MyDbusObject(dbus.service.Object):
 		global settingsAdded
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
-		if self._object_path not in groups:
-			return -1, None
 
 		if group.startswith('/') or group == '':
 			groupPath = self._object_path + str(group)
@@ -357,7 +338,7 @@ class MyDbusObject(dbus.service.Object):
 
 		if not groupPath in groups:
 			groups.append(groupPath)
-			groupObject = MyDbusObject(busName, groupPath)
+			groupObject = GroupObject(busName, groupPath)
 			myDbusGroupServices.append(groupObject)
 
 		if not itemPath in settings:
@@ -387,9 +368,20 @@ class MyDbusObject(dbus.service.Object):
 		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
 		myDbusObject._setValue(value, printLog=False, sendAttributes=True)
 		settingsAdded = True
-		self._startTimeoutSaveSettings()
+
 		return 0, myDbusObject
 
+	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
+	def GetValue(self):
+		prefix = self._object_path + '/'
+		return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
+			for k, v in settings.iteritems() \
+			if k.startswith(prefix) and len(k)>len(prefix) },
+			signature = dbus.Signature('sv'), variant_level=1)
+
+	@dbus.service.signal(InterfaceSettings, signature = '')
+	def ObjectPathsChanged(self):
+		tracing.log.debug('signal ObjectPathsChanged')
 
 # This object will send an overview of all available D-Bus paths and their values in the settings service if
 # a GetValue or GetText is issued on the root of the service.
@@ -846,8 +838,8 @@ def run():
 		myDbusObject = MyDbusObject(busName, setting)
 		myDbusServices.append(myDbusObject)
 	for group in groups:
-		myDbusObject = MyDbusObject(busName, group)
-		myDbusGroupServices.append(myDbusObject)
+		groupObject = GroupObject(busName, group)
+		myDbusGroupServices.append(groupObject)
 	myDbusMainGroupService = myDbusGroupServices[-1]
 	vrm_device_instance_mapper = VrmDeviceInstanceMapper(busName, settings, myDbusMainGroupService)
 
