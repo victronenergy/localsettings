@@ -121,24 +121,6 @@ settingsRootName = 'Settings'
 ## Indicates if settings are added
 settingsAdded = False
 
-class bidict(dict):
-	""" A bi-directional dictionary that maintains a 1:1 mapping. """
-	nothing = object()
-	def __init__(self, *args, **kwargs):
-		super(bidict, self).__init__(*args, **kwargs)
-		self.reverse = { v: k for k, v in self.iteritems() }
-	def __setitem__(self, key, value):
-		oldvalue = self.get(key, self.nothing)
-		if value != oldvalue and value in self.reverse:
-			raise ValueError("duplicate")
-		if oldvalue is not self.nothing and oldvalue in self.reverse:
-			del self.reverse[oldvalue]
-		super(bidict, self).__setitem__(key, value)
-		self.reverse[value] = key
-	def __delitem__(self, key):
-		del self.reverse[self[key]]
-		super(bidict, self).__delitem__(key)
-
 class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
 	#
@@ -496,58 +478,6 @@ class GroupObject(dbus.service.Object):
 	@dbus.service.signal(InterfaceSettings, signature = '')
 	def ObjectPathsChanged(self):
 		tracing.log.debug('signal ObjectPathsChanged')
-
-# This object allocates a VRM device instance given a device class, a unique string
-# (serial number), and a preferred instance number
-class VrmDeviceInstanceMapper(dbus.service.Object):
-	settings_prefix = '/Settings/VrmDeviceInstances/'
-	def __init__(self, busname, settings, maingroup):
-		dbus.service.Object.__init__(self, busname, '/Services/VrmDeviceInstances')
-		self.settings = settings
-		self.maingroup = maingroup
-
-	def allocations(self):
-		# This deliberately sources the allocations from the main settings
-		# in a somewhat inefficient manner. DeviceInstances are infrequently
-		# requested, and this simplifies the implementation and tracking
-		# changes becomes unnecessary. The number of settings to be traversed
-		# is also limited.
-		result = defaultdict(bidict)
-		for k, v in self.settings.iteritems():
-			if not k.startswith(self.settings_prefix): continue
-			parts = k.split('/')
-			klass, identifier = parts[3], parts[4]
-			try:
-				result[klass][v[VALUE]] = identifier
-			except ValueError:
-				# Ignore duplicates
-				pass
-		return result
-
-	def allocate(self, device_class, instance, identifier):
-		path = '/'.join(['VrmDeviceInstances', device_class, identifier])
-		self.maingroup.addSetting(path, 'VrmDeviceInstance', instance, 'i', 0, 0x7FFFFFFF, False)
-
-	@dbus.service.method(InterfaceSettings, in_signature = 'ssi', out_signature = 'i')
-	def GetVrmDeviceInstance(self, identifier, device_class, preferred_instance):
-		# device_class must be a valid XML name
-		valid = re.compile('^[A-Za-z0-9_]+$')
-		if None not in (valid.match(device_class), valid.match(identifier)):
-			data = self.allocations()[device_class]
-
-			# Check if we previously allocated a DeviceInstance for this device
-			instance = data.reverse.get(identifier, None)
-			if instance is not None:
-				return instance
-
-			# Allocate the preferred one or one close to it.
-			for new_instance in xrange(preferred_instance, 0x7FFFFFFF):
-				if new_instance not in data:
-					self.allocate(device_class, new_instance, identifier)
-					return new_instance
-
-		# Could not allocate VrmDeviceinstance
-		return -1
 
 ## The callback method for saving the settings-xml-file.
 # Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
@@ -937,7 +867,6 @@ def run():
 		groupObject = root.createGroups(group)
 		myDbusGroupServices.append(groupObject)
 	myDbusMainGroupService = myDbusGroupServices[-1]
-	vrm_device_instance_mapper = VrmDeviceInstanceMapper(busName, settings, myDbusMainGroupService)
 
 	MainLoop().run()
 
