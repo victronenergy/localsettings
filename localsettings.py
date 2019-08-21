@@ -374,7 +374,6 @@ class GroupObject(dbus.service.Object):
 
 	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
 		global settings
-		global defaults
 		global busName
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
