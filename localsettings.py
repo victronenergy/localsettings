@@ -63,10 +63,6 @@ traceToConsole = False
 traceToFile = False
 traceDebugOn = False
 
-## The dbus bus and bus-name.
-bus = None
-busName = None
-
 ## Dbus service name and interface name(s).
 dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
@@ -374,7 +370,6 @@ class GroupObject(dbus.service.Object):
 
 	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
 		global settings
-		global busName
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
@@ -730,14 +725,12 @@ def migrate_remote_support(tree, version):
 
 ## The main function.
 def run():
-	global bus
 	global dbusName
 	global settings
 	global pathSettings
 	global fileSettings
 	global newFileSettings
 	global sysSettingsDir
-	global busName
 	global tracingEnabled
 	global pathTraces
 	global traceToConsole
