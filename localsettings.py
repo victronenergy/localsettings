@@ -94,8 +94,6 @@ supportedTypes = {
 		'f':float,
 }
 
-myDbusGroupServices = []
-
 ## Save settings timeout.
 timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 2 # Timeout value in seconds.
@@ -380,7 +378,6 @@ class GroupObject(dbus.service.Object):
 		global settings
 		global defaults
 		global busName
-		global myDbusGroupServices
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
@@ -418,11 +415,6 @@ class GroupObject(dbus.service.Object):
 			attributes[SILENT] = str(silent)
 		except:
 			return -4, None
-
-		if not groupPath in groups:
-			groups.append(groupPath)
-			groupObject = self.createGroups(groupPath)
-			myDbusGroupServices.append(groupObject)
 
 		if not itemPath in settings:
 			# New setting
@@ -743,7 +735,6 @@ def migrate_remote_support(tree, version):
 def run():
 	global bus
 	global dbusName
-	global myDbusGroupServices
 	global settings
 	global pathSettings
 	global fileSettings
@@ -844,10 +835,10 @@ def run():
 	root = GroupObject(busName, "/", None)
 
 	for setting in settings:
-		settingObject = root.createSettingObjectAndGroups(setting)
-	for group in groups:
-		groupObject = root.createGroups(group)
-		myDbusGroupServices.append(groupObject)
+		root.createSettingObjectAndGroups(setting)
+
+	# make sure /Settings exists, in case there are no settings at all
+	root.createGroups("/Settings")
 
 	MainLoop().run()
 
