@@ -142,8 +142,8 @@ class bidict(dict):
 		del self.reverse[self[key]]
 		super(bidict, self).__delitem__(key)
 
-class MyDbusObject(dbus.service.Object):
-	## Constructor of MyDbusObject
+class SettingObject(dbus.service.Object):
+	## Constructor of SettingObject
 	#
 	# Creates the dbus-object under the given bus-name (dbus-service-name).
 	# @param busName Return value from dbus.service.BusName, see run()).
@@ -343,8 +343,8 @@ class GroupObject(dbus.service.Object):
 
 		if not itemPath in settings:
 			# New setting
-			myDbusObject = MyDbusObject(busName, itemPath)
-			myDbusServices.append(myDbusObject)
+			settingObject = SettingObject(busName, itemPath)
+			myDbusServices.append(settingObject)
 		else:
 			# Existing setting
 			if settings[itemPath][ATTRIB][TYPE] != attributes[TYPE]:
@@ -352,13 +352,13 @@ class GroupObject(dbus.service.Object):
 
 			for service in myDbusServices:
 				if service._object_path == itemPath:
-					myDbusObject = service
+					settingObject = service
 					break
 
 			unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
 			if len(unmatched) == 0:
 				# There are no changes
-				return 0, myDbusObject
+				return 0, settingObject
 
 			# There are changes, save them while keeping the current value.
 			value = settings[itemPath][VALUE]
@@ -366,10 +366,10 @@ class GroupObject(dbus.service.Object):
 		settings[itemPath] = [0, {}]
 		settings[itemPath][ATTRIB] = attributes
 		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
-		myDbusObject._setValue(value, printLog=False, sendAttributes=True)
+		settingObject._setValue(value, printLog=False, sendAttributes=True)
 		settingsAdded = True
 
-		return 0, myDbusObject
+		return 0, settingObject
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
@@ -835,8 +835,8 @@ def run():
 	root = RootObject(busName)
 
 	for setting in settings:
-		myDbusObject = MyDbusObject(busName, setting)
-		myDbusServices.append(myDbusObject)
+		settingObject = SettingObject(busName, setting)
+		myDbusServices.append(settingObject)
 	for group in groups:
 		groupObject = GroupObject(busName, group)
 		myDbusGroupServices.append(groupObject)
