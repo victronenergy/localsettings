@@ -6,7 +6,6 @@
 # Below code needs a major check and cleanup. A not complete list would be:
 # - get rid of the tracing, just use the standard logging modul, as also done in dbus_conversions for example
 # - use argparse.ArgumentParser, so get rid of usage()
-# - probably remove a lot of dbus code and replace by items from vedbus.py from velib_python
 
 # The local-settings-dbus-service provides the local-settings storage in non-volatile-memory.
 # The settings are stored in the settings.xml file. At startup the xml file is parsed and
@@ -150,6 +149,10 @@ class SettingObject(dbus.service.Object):
 	# @param objectPath The dbus-object-path (e.g. '/Settings/Logging/LogInterval').
 	def __init__(self, busName, objectPath):
 		dbus.service.Object.__init__(self, busName, objectPath)
+		self.group = None
+
+	def id(self):
+		return self._object_path.split("/")[-1]
 
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
@@ -270,8 +273,113 @@ class SettingObject(dbus.service.Object):
 		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
 
 class GroupObject(dbus.service.Object):
-	def __init__(self, busname, path):
+	def __init__(self, busname, path, parent):
 		dbus.service.Object.__init__(self, busname, path)
+		self._parent = parent
+		self._children = {}
+		self._settings = {}
+		self._busName = busname
+
+	def _path(self):
+		return "" if self._object_path == "/" else self._object_path
+
+	def _split_path(self, path):
+		list = path.split("/")
+		if not list:
+			return list
+		# skip the leading /
+		if list[0] == '':
+			del list[0]
+		return list
+
+	def createGroups(self, path):
+		list = self._split_path(path)
+		if not list:
+			return None
+		return self.createGroupsFromList(list)
+
+	# just to make it easy to overload
+	def _newSubGroup(self, path):
+		return GroupObject(self._busName, path, self)
+
+	def _newSettingObject(self, tag):
+		return SettingObject(self._busName, self._object_path + "/" + tag)
+
+	def createGroupsFromList(self, list):
+		if not list:
+			return self
+		subgroup = list.pop(0)
+		if subgroup not in self._children:
+			path = self._path() + "/" + subgroup
+			self._children[subgroup] = self._newSubGroup(path)
+		if len(list):
+			return self._children[subgroup].createGroupsFromList(list)
+		else:
+			return self._children[subgroup]
+
+	def getGroup(self, path):
+		list = self._split_path(path)
+		if not list:
+			return None
+		return self.getGroupFromList(list)
+
+	def getGroupFromList(self, list):
+		if not list:
+			return self
+		subgroup = list.pop(0)
+		if subgroup not in self._children:
+			return None
+		return self._children[subgroup].getGroupFromList(list)
+
+	def addSettingObject(self, setting):
+		id = setting.id()
+		if id in self._children:
+			return False
+		self._settings[id] = setting
+		setting.group = self
+		return True
+
+	def addGroup(self, id, group):
+		if self._settings:
+			return False
+		self._children[id] = group
+
+	def createGroupsForObjectPath(self, path):
+		list = self._split_path(path)
+		if not list:
+			return None
+		del list[-1]
+		return self.createGroupsFromList(list)
+
+	def createSettingObjectAndGroups(self, path):
+		group = self.createGroupsForObjectPath(path)
+		if not group:
+			return None
+		setting = group._newSettingObject(path.split("/")[-1])
+		if not group.addSettingObject(setting):
+			return None
+		return setting
+
+	def getSettingObject(self, path):
+		list = self._split_path(path)
+		if not list:
+			return None
+		name = list[-1]
+		del(list[-1])
+		group = self.getGroupFromList(list)
+		if not group:
+			return None
+		return group._settings.get(name)
+
+	def addSettingObjectsToList(self, list):
+		list.extend(self._settings.values())
+		for child in self._children.values():
+			child.addSettingObjectsToList(list)
+
+	def getSettingObjects(self):
+		list = []
+		self.addSettingObjectsToList(list)
+		return list
 
 	## Dbus method AddSetting.
 	# Add a new setting by the given parameters. The object-path must be a group.
@@ -305,14 +413,17 @@ class GroupObject(dbus.service.Object):
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
 		if group.startswith('/') or group == '':
-			groupPath = self._object_path + str(group)
+			groupPath = str(group)
 		else:
-			groupPath = self._object_path + '/' + str(group)
+			groupPath = '/' + str(group)
 
 		if name.startswith('/'):
 			itemPath = groupPath + str(name)
 		else:
 			itemPath = groupPath + '/' + str(name)
+
+		relativePath = itemPath
+		itemPath = self._path() + relativePath
 
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in itemPath:
@@ -338,12 +449,14 @@ class GroupObject(dbus.service.Object):
 
 		if not groupPath in groups:
 			groups.append(groupPath)
-			groupObject = GroupObject(busName, groupPath)
+			groupObject = self.createGroups(groupPath)
 			myDbusGroupServices.append(groupObject)
 
 		if not itemPath in settings:
 			# New setting
-			settingObject = SettingObject(busName, itemPath)
+			if self.getGroup(relativePath):
+				return -8, None
+			settingObject = self.createSettingObjectAndGroups(relativePath)
 			myDbusServices.append(settingObject)
 		else:
 			# Existing setting
@@ -373,7 +486,7 @@ class GroupObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
-		prefix = self._object_path + '/'
+		prefix = self._path() + '/'
 		return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
 			for k, v in settings.iteritems() \
 			if k.startswith(prefix) and len(k)>len(prefix) },
@@ -381,7 +494,7 @@ class GroupObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'a{ss}')
 	def GetText(self):
-		prefix = self._object_path + '/'
+		prefix = self._path() + '/'
 		return dbus.Dictionary({ k[len(prefix):]: str(v[VALUE]) \
 			for k, v in settings.iteritems() \
 			if k.startswith(prefix) and len(k)>len(prefix) },
@@ -390,22 +503,6 @@ class GroupObject(dbus.service.Object):
 	@dbus.service.signal(InterfaceSettings, signature = '')
 	def ObjectPathsChanged(self):
 		tracing.log.debug('signal ObjectPathsChanged')
-
-# This object will send an overview of all available D-Bus paths and their values in the settings service if
-# a GetValue or GetText is issued on the root of the service.
-class RootObject(dbus.service.Object):
-	def __init__(self, busname):
-		dbus.service.Object.__init__(self, busname, '/')
-
-	@dbus.service.method(InterfaceBusItem, out_signature='v')
-	def GetValue(self):
-		values = dict((k[1:], v[VALUE]) for k, v in settings.iteritems())
-		return dbus.Dictionary(values, signature=dbus.Signature('sv'), variant_level=1)
-
-	@dbus.service.method(InterfaceBusItem, out_signature='v')
-	def GetText(self):
-		values = dict((k[1:], str(v[VALUE])) for k, v in settings.iteritems())
-		return values
 
 # This object allocates a VRM device instance given a device class, a unique string
 # (serial number), and a preferred instance number
@@ -840,13 +937,13 @@ def run():
 	# For a CCGX, connect to the SystemBus
 	bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 	busName = dbus.service.BusName(dbusName, bus)
-	root = RootObject(busName)
+	root = GroupObject(busName, "/", None)
 
 	for setting in settings:
-		settingObject = SettingObject(busName, setting)
+		settingObject = root.createSettingObjectAndGroups(setting)
 		myDbusServices.append(settingObject)
 	for group in groups:
-		groupObject = GroupObject(busName, group)
+		groupObject = root.createGroups(group)
 		myDbusGroupServices.append(groupObject)
 	myDbusMainGroupService = myDbusGroupServices[-1]
 	vrm_device_instance_mapper = VrmDeviceInstanceMapper(busName, settings, myDbusMainGroupService)
