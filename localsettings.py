@@ -379,6 +379,14 @@ class GroupObject(dbus.service.Object):
 			if k.startswith(prefix) and len(k)>len(prefix) },
 			signature = dbus.Signature('sv'), variant_level=1)
 
+	@dbus.service.method(InterfaceBusItem, out_signature = 'a{ss}')
+	def GetText(self):
+		prefix = self._object_path + '/'
+		return dbus.Dictionary({ k[len(prefix):]: str(v[VALUE]) \
+			for k, v in settings.iteritems() \
+			if k.startswith(prefix) and len(k)>len(prefix) },
+			signature = dbus.Signature('ss'))
+
 	@dbus.service.signal(InterfaceSettings, signature = '')
 	def ObjectPathsChanged(self):
 		tracing.log.debug('signal ObjectPathsChanged')
