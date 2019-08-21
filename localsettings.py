@@ -74,7 +74,6 @@ InterfaceSettings = 'com.victronenergy.Settings'
 
 ## The dictionaries containing the settings and the groups.
 settings = {}
-groups = []
 
 ## Index values for settings.
 VALUE = 0
@@ -374,7 +373,6 @@ class GroupObject(dbus.service.Object):
 		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
 
 	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
-		global groups
 		global settings
 		global defaults
 		global busName
@@ -740,7 +738,6 @@ def run():
 	global fileSettings
 	global newFileSettings
 	global sysSettingsDir
-	global groups
 	global busName
 	global tracingEnabled
 	global pathTraces
@@ -822,11 +819,8 @@ def run():
 		tracing.log.warning('Created settings file %s' % fileSettings)
 
 	# read the settings.xml
+	groups = []
 	parseXmlFileToDictionary(fileSettings, settings, groups)
-	tracing.log.debug('settings:')
-	tracing.log.debug(settings.items())
-	tracing.log.debug('groups:')
-	tracing.log.debug(groups)
 
 	# For a PC, connect to the SessionBus
 	# For a CCGX, connect to the SystemBus
