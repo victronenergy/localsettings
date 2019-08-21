@@ -96,9 +96,6 @@ supportedTypes = {
 
 myDbusGroupServices = []
 
-## The main group dbus-service.
-myDbusMainGroupService = None
-
 ## Save settings timeout.
 timeoutSaveSettingsEventId = None
 timeoutSaveSettingsTime = 2 # Timeout value in seconds.
@@ -117,9 +114,6 @@ settingsTag = 'version'
 settingsVersion = '2'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
-
-## Indicates if settings are added
-settingsAdded = False
 
 class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
@@ -387,7 +381,6 @@ class GroupObject(dbus.service.Object):
 		global defaults
 		global busName
 		global myDbusGroupServices
-		global settingsAdded
 
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
@@ -455,7 +448,6 @@ class GroupObject(dbus.service.Object):
 		settings[itemPath][ATTRIB] = attributes
 		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
 		settingObject._setValue(value, printLog=False, sendAttributes=True)
-		settingsAdded = True
 
 		return 0, settingObject
 
@@ -475,26 +467,17 @@ class GroupObject(dbus.service.Object):
 			if k.startswith(prefix) and len(k)>len(prefix) },
 			signature = dbus.Signature('ss'))
 
-	@dbus.service.signal(InterfaceSettings, signature = '')
-	def ObjectPathsChanged(self):
-		tracing.log.debug('signal ObjectPathsChanged')
-
 ## The callback method for saving the settings-xml-file.
 # Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
 def saveSettingsCallback():
 	global timeoutSaveSettingsEventId
 	global settings
 	global fileSettings
-	global myDbusMainGroupService
-	global settingsAdded
 
 	tracing.log.debug('Saving settings to file')
 	source_remove(timeoutSaveSettingsEventId)
 	timeoutSaveSettingsEventId = None
 	parseDictionaryToXmlFile(settings, fileSettings)
-	if settingsAdded:
-		settingsAdded = False
-		myDbusMainGroupService.ObjectPathsChanged()
 
 ## Method for converting a value the the given type.
 # When the type is not supported it simply returns the value as is.
@@ -774,7 +757,6 @@ def run():
 	global traceToFile
 	global traceFileName
 	global traceDebugOn
-	global myDbusMainGroupService
 
 	DBusGMainLoop(set_as_default=True)
 
@@ -866,7 +848,6 @@ def run():
 	for group in groups:
 		groupObject = root.createGroups(group)
 		myDbusGroupServices.append(groupObject)
-	myDbusMainGroupService = myDbusGroupServices[-1]
 
 	MainLoop().run()
 
