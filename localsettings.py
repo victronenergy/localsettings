@@ -706,18 +706,6 @@ def loadSettingsDir(path, dictionary):
 			tracing.log.error('error loading %s: %s' %
 					  (filename, str(ex)))
 
-## Handles the system (Linux / Windows) signals such as SIGTERM.
-#
-# Stops the logscript with an exit-code.
-# @param signum the signal-number.
-# @param stack the call-stack.
-def handlerSignals(signum, stack):
-	tracing.log.warning('handlerSignals received: %d' % signum)
-	exitCode = 0
-	if signum == signal.SIGHUP:
-		exitCode = 1
-	exit(exitCode)
-
 # Migration code.
 # TODO ideally this should be elsewhere.
 def delete_from_tree(tree, path):
@@ -845,12 +833,6 @@ def run():
 	# Trace the python version.
 	pythonVersion = platform.python_version()
 	tracing.log.debug('Current python version: %s' % pythonVersion)
-
-	# setup signal handling.
-	signal.signal(signal.SIGHUP, handlerSignals) # 1: Hangup detected
-	signal.signal(signal.SIGINT, handlerSignals) # 2: Ctrl-C
-	signal.signal(signal.SIGUSR1, handlerSignals) # 10: kill -USR1 <logscript-pid>
-	signal.signal(signal.SIGTERM, handlerSignals) # 15: Terminate
 
 	# load system default settings
 	loadSettingsDir(sysSettingsDir, settings)
