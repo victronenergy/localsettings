@@ -56,7 +56,6 @@ FIRMWARE_VERSION_MINOR = 0x22
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
 ## Dbus service name and interface name(s).
-dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
 InterfaceSettings = 'com.victronenergy.Settings'
 
@@ -81,24 +80,14 @@ supportedTypes = {
 		'f':float,
 }
 
-## Save settings timeout.
-timeoutSaveSettingsEventId = None
-timeoutSaveSettingsTime = 2 # Timeout value in seconds.
-
-## File names.
-fileSettings = 'settings.xml'
-newFileExtension = '.new'
-newFileSettings = fileSettings + newFileExtension
-
-## Path(s) definitions.
-pathSettings = '/data/conf/'
-sysSettingsDir = '/etc/venus/settings.d'
-
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
 settingsVersion = '2'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
+
+## The LocalSettings instance
+localSettings = None
 
 class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
@@ -183,12 +172,13 @@ class SettingObject(dbus.service.Object):
 	# @param value The new value for the setting.
 	def _setValue(self, value, printLog=True, sendAttributes=False):
 		global settings
+		global localSettings
 
 		if printLog and settings[self._object_path][ATTRIB].get(SILENT) != 'True':
 			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
 
 		settings[self._object_path][VALUE] = value
-		self._startTimeoutSaveSettings()
+		localSettings.startTimeoutSaveSettings()
 		text = self.GetText()
 		change = {'Value':value, 'Text':text}
 		if sendAttributes:
@@ -198,18 +188,6 @@ class SettingObject(dbus.service.Object):
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
 	def PropertiesChanged(self, changes):
 		tracing.log.debug('signal PropertiesChanged')
-
-	## Method for starting the time-out for saving to the settings-xml-file.
-	# (Re)Starts the time-out. When after x time no settings are changed,
-	# the settings-xml-file is saved.
-	def _startTimeoutSaveSettings(self):
-		global timeoutSaveSettingsEventId
-		global timeoutSaveSettingsTime
-
-		if timeoutSaveSettingsEventId is not None:
-			source_remove(timeoutSaveSettingsEventId)
-			timeoutSaveSettingsEventId = None
-		timeoutSaveSettingsEventId = timeout_add(timeoutSaveSettingsTime*1000, saveSettingsCallback)
 
 	## Dbus method GetDefault.
 	# Returns the default value of a setting.
@@ -443,18 +421,6 @@ class GroupObject(dbus.service.Object):
 			if k.startswith(prefix) and len(k)>len(prefix) },
 			signature = dbus.Signature('ss'))
 
-## The callback method for saving the settings-xml-file.
-# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
-def saveSettingsCallback():
-	global timeoutSaveSettingsEventId
-	global settings
-	global fileSettings
-
-	tracing.log.debug('Saving settings to file')
-	source_remove(timeoutSaveSettingsEventId)
-	timeoutSaveSettingsEventId = None
-	parseDictionaryToXmlFile(settings, fileSettings)
-
 ## Method for converting a value the the given type.
 # When the type is not supported it simply returns the value as is.
 # @param type The type to convert to.
@@ -516,7 +482,7 @@ def parseXmlToDictionary(element, path, dictionaryItems, arrayGroups):
 # The dictionary must be in following format {dbus-object-path, [value, {attributes}]}.
 # @param dictionary The dictionary with the settings.
 # @param file The filename.
-def parseDictionaryToXmlFile(dictionary, file):
+def parseDictionaryToXmlFile(dictionary, file, newFileExtension):
 	tracing.log.debug('parseDictionaryToXmlFile %s' % file)
 	root = None
 	for key, _value in dictionary.iteritems():
@@ -636,18 +602,10 @@ def delete_from_tree(tree, path):
 		return
 	obj[0].getparent().remove(obj[0])
 
-def save(tree):
-	global fileSettings
-	global newFileSettings
-
-	with open(newFileSettings, 'wb') as fp:
-		tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
-		fp.flush()
-		os.fsync(fp.fileno())
-		rename(newFileSettings, fileSettings)
-
 ## Migrate old canbus settings
 def migrate_can_profile(tree, version):
+	global localSettings
+
 	if version != 1:
 		return
 
@@ -696,7 +654,7 @@ def migrate_can_profile(tree, version):
 	delete_from_tree(tree, "/Settings/Services/OceanvoltValence")
 	delete_from_tree(tree, "/Settings/Services/VeCan")
 
-	save(tree)
+	localSettings.save(tree)
 
 def migrate_remote_support(tree, version):
 	if version != 1:
@@ -716,95 +674,124 @@ def migrate_remote_support(tree, version):
 	prof.set('type', 'i')
 
 ## The main function.
-def run():
-	global dbusName
+class LocalSettings:
 	global settings
-	global pathSettings
-	global fileSettings
-	global newFileSettings
-	global sysSettingsDir
 
-	# set the settings path
-	fileSettings = pathSettings + fileSettings
-	newFileSettings = pathSettings + newFileSettings
+	dbusName = 'com.victronenergy.settings'
+	fileSettings = 'settings.xml'
+	newFileExtension = '.new'
+	sysSettingsDir = '/etc/venus/settings.d'
 
-	# Print the logscript version
-	tracing.log.info('Localsettings version is: 0x%04x' % version)
-	tracing.log.info('Localsettings PID is: %d' % getpid())
+	def __init__(self, pathSettings, timeoutSaveSettingsTime):
+		# set the settings path
+		self.fileSettings = pathSettings + self.fileSettings
+		self.newFileSettings = self.fileSettings + self.newFileExtension
+		self.timeoutSaveSettingsTime = timeoutSaveSettingsTime
+		self.timeoutSaveSettingsEventId = None
 
-	# Trace the python version.
-	pythonVersion = platform.python_version()
-	tracing.log.debug('Current python version: %s' % pythonVersion)
+		# Print the logscript version
+		tracing.log.info('Localsettings version is: 0x%04x' % version)
+		tracing.log.info('Localsettings PID is: %d' % getpid())
 
-	# load system default settings
-	loadSettingsDir(sysSettingsDir, settings)
+		# Trace the python version.
+		pythonVersion = platform.python_version()
+		tracing.log.debug('Current python version: %s' % pythonVersion)
 
-	if not path.isdir(pathSettings):
-		print('Error path %s does not exist!' % pathSettings)
-		sys.exit(errno.ENOENT)
+		# load system default settings
+		loadSettingsDir(self.sysSettingsDir, settings)
 
-	if path.isfile(newFileSettings):
-		tracing.log.info('New settings file exist')
-		try:
-			tree = etree.parse(newFileSettings)
-			root = tree.getroot()
-			tracing.log.info('New settings file %s validated' % newFileSettings)
-			rename(newFileSettings, fileSettings)
-			tracing.log.info('renamed new settings file to settings file')
-		except:
-			tracing.log.error('New settings file %s invalid' % newFileSettings)
-			remove(newFileSettings)
-			tracing.log.error('%s removed' % newFileSettings)
+		if not path.isdir(pathSettings):
+			print('Error path %s does not exist!' % pathSettings)
+			sys.exit(errno.ENOENT)
 
-	if path.isfile(fileSettings):
-		# Try to validate the settings file.
-		try:
-			tree = etree.parse(fileSettings)
-			root = tree.getroot()
-			# NOTE: there used to be a 1.0 version once upon a time an no version at all
-			# in really old version. Since it is easier to compare integers only use the
-			# major part.
-			loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
-			loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
+		if path.isfile(self.newFileSettings):
+			tracing.log.info('New settings file exist')
+			try:
+				tree = etree.parse(self.newFileSettings)
+				root = tree.getroot()
+				tracing.log.info('New settings file %s validated' % self.newFileSettings)
+				rename(self.newFileSettings, self.fileSettings)
+				tracing.log.info('renamed new settings file to settings file')
+			except:
+				tracing.log.error('New settings file %s invalid' % self.newFileSettings)
+				remove(self.newFileSettings)
+				tracing.log.error('%s removed' % self.newFileSettings)
 
-			migrate_can_profile(tree, loadedVersion)
-			migrate_remote_support(tree, loadedVersion)
-			tracing.log.info('Settings file %s validated' % fileSettings)
+		if path.isfile(self.fileSettings):
+			# Try to validate the settings file.
+			try:
+				tree = etree.parse(self.fileSettings)
+				root = tree.getroot()
+				# NOTE: there used to be a 1.0 version once upon a time an no version at all
+				# in really old version. Since it is easier to compare integers only use the
+				# major part.
+				loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
+				loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
 
-			if loadedVersionTxt != settingsVersion:
-				print("Updating version to " + settingsVersion)
-				root.set(settingsTag, settingsVersion)
-				save(tree)
+				migrate_can_profile(tree, loadedVersion)
+				migrate_remote_support(tree, loadedVersion)
+				tracing.log.info('Settings file %s validated' % self.fileSettings)
 
-		except:
-			tracing.log.error('Settings file %s invalid' % fileSettings)
-			remove(fileSettings)
-			tracing.log.error('%s removed' % fileSettings)
+				if loadedVersionTxt != settingsVersion:
+					print("Updating version to " + settingsVersion)
+					root.set(settingsTag, settingsVersion)
+					self.save(tree)
 
-	# check if settings file is present, if not exit create a "empty" settings file.
-	if not path.isfile(fileSettings):
-		tracing.log.warning('Settings file %s not found' % fileSettings)
-		root = etree.Element(settingsRootName)
-		root.set(settingsTag, settingsVersion)
-		tree = etree.ElementTree(root)
-		save(tree)
-		tracing.log.warning('Created settings file %s' % fileSettings)
+			except:
+				tracing.log.error('Settings file %s invalid' % self.fileSettings)
+				remove(self.fileSettings)
+				tracing.log.error('%s removed' % self.fileSettings)
 
-	# read the settings.xml
-	groups = []
-	parseXmlFileToDictionary(fileSettings, settings, groups)
+		# check if settings file is present, if not exit create a "empty" settings file.
+		if not path.isfile(self.fileSettings):
+			tracing.log.warning('Settings file %s not found' % self.fileSettings)
+			root = etree.Element(settingsRootName)
+			root.set(settingsTag, settingsVersion)
+			tree = etree.ElementTree(root)
+			self.save(tree)
+			tracing.log.warning('Created settings file %s' % self.fileSettings)
 
-	# For a PC, connect to the SessionBus
-	# For a CCGX, connect to the SystemBus
-	bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
-	busName = dbus.service.BusName(dbusName, bus)
-	root = GroupObject(busName, "/", None)
+		# read the settings.xml
+		groups = []
+		parseXmlFileToDictionary(self.fileSettings, settings, groups)
 
-	for setting in settings:
-		root.createSettingObjectAndGroups(setting)
+		# connect to the SessionBus if there is one. System otherwise
+		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
+		busName = dbus.service.BusName(self.dbusName, bus)
+		root = GroupObject(busName, "/", None)
 
-	# make sure /Settings exists, in case there are no settings at all
-	root.createGroups("/Settings")
+		for setting in settings:
+			root.createSettingObjectAndGroups(setting)
+
+		# make sure /Settings exists, in case there are no settings at all
+		root.createGroups("/Settings")
+
+	def save(self, tree):
+		with open(self.newFileSettings, 'wb') as fp:
+			tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
+			fp.flush()
+			os.fsync(fp.fileno())
+			rename(self.newFileSettings, self.fileSettings)
+
+	## The callback method for saving the settings-xml-file.
+	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
+	def saveSettingsCallback(self):
+		global settings
+
+		tracing.log.debug('Saving settings to file')
+		source_remove(self.timeoutSaveSettingsEventId)
+		self.timeoutSaveSettingsEventId = None
+		parseDictionaryToXmlFile(settings, self.fileSettings, self.newFileExtension)
+
+	## Method for starting the time-out for saving to the settings-xml-file.
+	# (Re)Starts the time-out. When after x time no settings are changed,
+	# the settings-xml-file is saved.
+	def startTimeoutSaveSettings(self):
+		if self.timeoutSaveSettingsEventId is not None:
+			source_remove(self.timeoutSaveSettingsEventId)
+			self.timeoutSaveSettingsEventId = None
+		self.timeoutSaveSettingsEventId = timeout_add(self.timeoutSaveSettingsTime * 1000,
+														self.saveSettingsCallback)
 
 def usage():
 	print("Usage: ./localsettings [OPTION]")
@@ -820,8 +807,10 @@ def usage():
 	print("permissions in that path to write/read.")
 
 def main(argv):
-	global pathSettings
-	global timeoutSaveSettingsTime
+	global localSettings
+
+	pathSettings = 'conf/'
+	timeoutSaveSettingsTime = 2
 
 	## Traces (info / debug) setup
 	pathTraces = '/log/'
@@ -864,7 +853,7 @@ def main(argv):
 
 	DBusGMainLoop(set_as_default=True)
 
-	run()
+	localSettings = LocalSettings(pathSettings, timeoutSaveSettingsTime)
 
 	MainLoop().run()
 
