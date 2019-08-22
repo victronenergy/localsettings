@@ -55,14 +55,6 @@ FIRMWARE_VERSION_MINOR = 0x22
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
-## Traces (info / debug) setup
-pathTraces = '/log/'
-traceFileName = 'localsettingstraces'
-tracingEnabled = False
-traceToConsole = False
-traceToFile = False
-traceDebugOn = False
-
 ## Dbus service name and interface name(s).
 dbusName = 'com.victronenergy.settings'
 InterfaceBusItem = 'com.victronenergy.BusItem'
@@ -731,22 +723,12 @@ def run():
 	global fileSettings
 	global newFileSettings
 	global sysSettingsDir
-	global tracingEnabled
-	global pathTraces
-	global traceToConsole
-	global traceToFile
-	global traceFileName
-	global traceDebugOn
 
 	DBusGMainLoop(set_as_default=True)
 
 	# set the settings path
 	fileSettings = pathSettings + fileSettings
 	newFileSettings = pathSettings + newFileSettings
-
-	# setup debug traces.
-	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
-	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	# Print the logscript version
 	tracing.log.info('Localsettings version is: 0x%04x' % version)
@@ -842,15 +824,16 @@ def usage():
 	print("permissions in that path to write/read.")
 
 def main(argv):
-	global tracingEnabled
-	global traceToConsole
-	global traceToFile
-	global traceDebugOn
 	global pathSettings
 	global timeoutSaveSettingsTime
 
-	tracingEnabled = True
+	## Traces (info / debug) setup
+	pathTraces = '/log/'
+	traceFileName = 'localsettingstraces'
 	traceToConsole = True
+	tracingEnabled = True
+	traceToFile = False
+	traceDebugOn = False
 
 	try:
 		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path=", "no-delay"])
@@ -876,6 +859,10 @@ def main(argv):
 		elif opt == '--no-delay':
 			print("no delay")
 			timeoutSaveSettingsTime = 0
+
+	# setup debug traces.
+	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
+	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
