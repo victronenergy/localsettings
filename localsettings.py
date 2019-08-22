@@ -724,8 +724,6 @@ def run():
 	global newFileSettings
 	global sysSettingsDir
 
-	DBusGMainLoop(set_as_default=True)
-
 	# set the settings path
 	fileSettings = pathSettings + fileSettings
 	newFileSettings = pathSettings + newFileSettings
@@ -808,8 +806,6 @@ def run():
 	# make sure /Settings exists, in case there are no settings at all
 	root.createGroups("/Settings")
 
-	MainLoop().run()
-
 def usage():
 	print("Usage: ./localsettings [OPTION]")
 	print("-h, --help\tdisplay this help and exit")
@@ -866,6 +862,10 @@ def main(argv):
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
+	DBusGMainLoop(set_as_default=True)
+
 	run()
+
+	MainLoop().run()
 
 main(sys.argv[1:])
