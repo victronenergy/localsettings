@@ -43,6 +43,7 @@ import platform
 import os
 import re
 from collections import defaultdict
+import migrate
 
 # Victron imports
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
@@ -61,9 +62,9 @@ InterfaceSettings = 'com.victronenergy.Settings'
 
 ## Supported types for convert xml-text to value.
 supportedTypes = {
-		'i':int,
-		's':str,
-		'f':float,
+	'i': int,
+	's': str,
+	'f': float,
 }
 
 ## Settings file version tag, encoding and root-element.
@@ -99,7 +100,7 @@ class SettingObject(dbus.service.Object):
 		default = convertToType(elementType, e.get("default"))
 		min = convertToType(elementType, e.get("min"))
 		max = convertToType(elementType, e.get("max"))
-		silent = to_bool(e.get("silent"))
+		silent = toBool(e.get("silent"))
 		self.setAttributes(default, elementType, min, max, silent)
 
 	def storeAttribute(self, element, name):
@@ -479,7 +480,7 @@ def writeToXmlFile(localSettings, settingsGroup):
 	settingsGroup.toXml(root)
 	localSettings.save(tree)
 
-def to_bool(val):
+def toBool(val):
 	if type(val) != str:
 		return bool(val)
 
@@ -500,32 +501,32 @@ def loadSettingsFile(name, settingsGroup):
 
 			try:
 				path = v[0]
-				defval = v[1]
-				itemtype = v[2]
+				defVal = v[1]
+				itemType = v[2]
 			except:
 				raise Exception('syntax error: ' + line)
 
-			minval = v[3] if len(v) > 3 else 0
-			maxval = v[4] if len(v) > 4 else 0
+			minVal = v[3] if len(v) > 3 else 0
+			maxVal = v[4] if len(v) > 4 else 0
 			silent = v[5] if len(v) > 5 else 0
 
-			if itemtype not in supportedTypes:
+			if itemType not in supportedTypes:
 				raise Exception('invalid type')
 
-			defval = convertToType(itemtype, defval)
+			defVal = convertToType(itemType, defVal)
 
-			if type(defval) != str:
-				minval = convertToType(itemtype, minval)
-				maxval = convertToType(itemtype, maxval)
+			if type(defVal) != str:
+				minVal = convertToType(itemType, minVal)
+				maxVal = convertToType(itemType, maxVal)
 
-				if minval or maxval:
-					if defval < minval or defval > maxval:
+				if minVal or maxVal:
+					if defVal < minVal or defVal > maxVal:
 						raise Exception('default value out of range')
 
-			silent = to_bool(silent)
+			silent = toBool(silent)
 			path = path.lstrip('/')
 
-			settingsGroup.addSetting(path, defval, itemtype, minval, maxval, silent)
+			settingsGroup.addSetting(path, defVal, itemType, minVal, maxVal, silent)
 
 ## Load settings from each file in dir
 def loadSettingsDir(path, dictionary):
@@ -541,85 +542,6 @@ def loadSettingsDir(path, dictionary):
 		except Exception as ex:
 			tracing.log.error('error loading %s: %s' %
 					  (filename, str(ex)))
-
-# Migration code.
-# TODO ideally this should be elsewhere.
-def delete_from_tree(tree, path):
-	obj = tree.xpath(path)
-	if not obj:
-		return
-	obj[0].getparent().remove(obj[0])
-
-## Migrate old canbus settings
-def migrate_can_profile(tree, version):
-	global localSettings
-
-	if version != 1:
-		return
-
-	if not os.path.isfile("/etc/venus/canbus_ports"):
-		return
-
-	with open('/etc/venus/canbus_ports', 'r') as f:
-		iflist = f.readline().split(None, 1)
-		if not iflist:
-			return
-		interface = iflist[0]
-
-	path = "/Settings/Canbus/" + interface + "/Profile"
-
-	if tree.xpath(path):
-		return
-
-	# default to Ve.Can
-	profile = 1
-
-	if tree.xpath("/Settings/Services/LgResu/text()") == ["1"]:
-		profile = 3
-	elif tree.xpath("/Settings/Services/OceanvoltMotorDrive/text()") == ["1"] or \
-		tree.xpath("/Settings/Services/OceanvoltValence/text()") == ["1"]:
-		profile = 4
-	elif tree.xpath("/Settings/Services/VeCan/text()") == ["0"]:
-		profile = 0
-
-	print("Setting " + path + " to " + str(profile))
-
-	settings = tree.getroot()
-	canbus = settings.find("Canbus")
-	if canbus == None:
-		canbus = etree.SubElement(settings, "Canbus")
-
-	inter = canbus.find(interface)
-	if inter == None:
-		inter = etree.SubElement(canbus, interface)
-
-	prof = etree.SubElement(inter, "Profile")
-	prof.text = str(profile)
-	prof.set('type', 'i')
-
-	delete_from_tree(tree, "/Settings/Services/LgResu")
-	delete_from_tree(tree, "/Settings/Services/OceanvoltMotorDrive")
-	delete_from_tree(tree, "/Settings/Services/OceanvoltValence")
-	delete_from_tree(tree, "/Settings/Services/VeCan")
-
-	localSettings.save(tree)
-
-def migrate_remote_support(tree, version):
-	if version != 1:
-		return
-
-	if tree.xpath("/Settings/System/RemoteSupport/text()") != ["1"]:
-		return
-
-	print("Enable ssh on LAN since it was enabled by RemoteSupport")
-	settings = tree.getroot()
-	system = settings.find("System")
-	if system == None:
-		system = system.SubElement(settings, "System")
-
-	prof = etree.SubElement(system, "SSHLocal")
-	prof.text = "1"
-	prof.set('type', 'i')
 
 ## The main function.
 class LocalSettings:
@@ -673,8 +595,8 @@ class LocalSettings:
 				loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
 				loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
 
-				migrate_can_profile(tree, loadedVersion)
-				migrate_remote_support(tree, loadedVersion)
+				migrate.migrate(self, tree, loadedVersion)
+
 				tracing.log.info('Settings file %s validated' % self.fileSettings)
 
 				if loadedVersionTxt != settingsVersion:
