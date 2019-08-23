@@ -506,9 +506,9 @@ def loadSettingsFile(name, settingsGroup):
 			except:
 				raise Exception('syntax error: ' + line)
 
-			minVal = v[3] if len(v) > 3 else 0
-			maxVal = v[4] if len(v) > 4 else 0
-			silent = v[5] if len(v) > 5 else 0
+			minVal = v[3] if len(v) > 3 else None
+			maxVal = v[4] if len(v) > 4 else None
+			silent = v[5] if len(v) > 5 else False
 
 			if itemType not in supportedTypes:
 				raise Exception('invalid type')
