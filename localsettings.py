@@ -398,6 +398,9 @@ class GroupObject(dbus.service.Object):
 		except:
 			return -4, None
 
+		if self._path() is "" and not relativePath.startswith("/Settings/"):
+			return -9, None
+
 		settingObject = self.getSettingObject(relativePath)
 		if not settingObject:
 			# New setting
