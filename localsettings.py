@@ -59,20 +59,6 @@ version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 InterfaceBusItem = 'com.victronenergy.BusItem'
 InterfaceSettings = 'com.victronenergy.Settings'
 
-## The dictionaries containing the settings and the groups.
-settings = {}
-
-## Index values for settings.
-VALUE = 0
-ATTRIB = 1
-
-## ATTRIB keywords.
-TYPE='type'
-MIN='min'
-MAX='max'
-DEFAULT='default'
-SILENT='silent'
-
 ## Supported types for convert xml-text to value.
 supportedTypes = {
 		'i':int,
@@ -98,27 +84,64 @@ class SettingObject(dbus.service.Object):
 	def __init__(self, busName, objectPath):
 		dbus.service.Object.__init__(self, busName, objectPath)
 		self.group = None
+		self.value = None
+		self.min = None
+		self.max = None
+		self.default = None
+		self.silent = False
+		self.type = None
+
+	def fromXml(self, element):
+		elementType = element.attrib["type"]
+		e = element.attrib
+
+		self.value = convertToType(elementType, element.text if element.text else '')
+		default = convertToType(elementType, e.get("default"))
+		min = convertToType(elementType, e.get("min"))
+		max = convertToType(elementType, e.get("max"))
+		silent = to_bool(e.get("silent"))
+		self.setAttributes(default, elementType, min, max, silent)
+
+	def storeAttribute(self, element, name):
+		value = getattr(self, name)
+		if value is None:
+			return
+		element.set(name, str(value))
+
+	def toXml(self, element):
+		self.storeAttribute(element, "type")
+		self.storeAttribute(element, "min")
+		self.storeAttribute(element, "max")
+		self.storeAttribute(element, "default")
+		self.storeAttribute(element, "silent")
+		element.text = str(self.value)
 
 	def id(self):
 		return self._object_path.split("/")[-1]
 
+	def setAttributes(self, default, type, min, max, silent):
+		ret = self.default != default or self.type != type or self.min != min or \
+				self.max != max or self.silent != silent
+
+		self.default = default
+		self.type = type
+		self.min = min
+		self.max = max
+		self.silent = silent
+
+		return ret
+
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
-	# @return setting A setting value or -1 (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
-		global settings
-
-		return settings[self._object_path][VALUE]
+		return self.value
 
 	## Dbus method GetText
 	# Returns the value as string of the dbus-object-path (the settings).
-	# @return setting A setting value or '' (error)
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
-		global settings
-
-		return str(settings[self._object_path][VALUE])
+		return str(self.value)
 
 	## Dbus method SetValue
 	# Sets the value of a setting. When the type of the setting is a integer or float,
@@ -127,60 +150,44 @@ class SettingObject(dbus.service.Object):
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
 	def SetValue(self, value):
-		global settings
-
-		okToSave = True
-		v = value
-		path = self._object_path
-		if TYPE in settings[path][ATTRIB]:
-			itemType = settings[path][ATTRIB][TYPE]
-			if itemType in supportedTypes:
-				try:
-					v = convertToType(itemType, value)
-					if MIN in settings[path][ATTRIB]:
-						if v < convertToType(itemType, settings[path][ATTRIB][MIN]):
-							okToSave = False
-					if MAX in settings[path][ATTRIB]:
-						if v > convertToType(itemType, settings[path][ATTRIB][MAX]):
-							okToSave = False
-				except:
-					okToSave = False
-		if okToSave == True:
-			if v != settings[path][VALUE]:
-				self._setValue(v)
-			return 0
-		else:
+		v = convertToType(self.type, value)
+		if v is None:
 			return -1
+
+		if self.min and v < self.min:
+			return -1
+		if self.max and v > self.max:
+			return -1
+
+		if v != self.value:
+			self._setValue(v)
+
+		return 0
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMin(self):
-		if MIN in settings[self._object_path][ATTRIB]:
-			return convertToType(settings[self._object_path][ATTRIB][TYPE],
-				settings[self._object_path][ATTRIB][MIN])
-		else:
+		if self.min is None:
 			return 0
+		return self.min
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMax(self):
-		if MAX in settings[self._object_path][ATTRIB]:
-			return convertToType(settings[self._object_path][ATTRIB][TYPE],
-				settings[self._object_path][ATTRIB][MAX])
-		else:
+		if self.max is None:
 			return 0
+		return self.max
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
 	def _setValue(self, value, printLog=True, sendAttributes=False):
-		global settings
 		global localSettings
 
-		if printLog and settings[self._object_path][ATTRIB].get(SILENT) != 'True':
-			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, settings[self._object_path][VALUE], value))
+		if printLog and not self.silent:
+			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, self.value, value))
 
-		settings[self._object_path][VALUE] = value
+		self.value = value
 		localSettings.startTimeoutSaveSettings()
 		text = self.GetText()
-		change = {'Value':value, 'Text':text}
+		change = {'Value': value, 'Text': text}
 		if sendAttributes:
 			change.update({'Min': self.GetMin(), 'Max': self.GetMax(), 'Default': self.GetDefault()})
 		self.PropertiesChanged(change)
@@ -191,19 +198,11 @@ class SettingObject(dbus.service.Object):
 
 	## Dbus method GetDefault.
 	# Returns the default value of a setting.
-	# @return value The default value or -1 (error or no default set)
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
-		global settings
-
-		path = self._object_path
-		try:
-			type = settings[path][ATTRIB][TYPE]
-			value = convertToType(type, settings[path][ATTRIB][DEFAULT])
-			return value
-		except:
-			tracing.log.error('Could not get default for %s %s' % (path, settings[path][ATTRIB].items()))
+		if self.default is None:
 			return -1
+		return self.default
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
@@ -216,6 +215,15 @@ class GroupObject(dbus.service.Object):
 		self._children = {}
 		self._settings = {}
 		self._busName = busname
+
+	def toXml(self, element):
+		for childId in self._children:
+			subElement = etree.SubElement(element, tagForXml(childId))
+			self._children[childId].toXml(subElement)
+
+		for settingId in self._settings:
+			subElement = etree.SubElement(element, tagForXml(settingId))
+			self._settings[settingId].toXml(subElement)
 
 	def _path(self):
 		return "" if self._object_path == "/" else self._object_path
@@ -339,8 +347,6 @@ class GroupObject(dbus.service.Object):
 		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
 
 	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
-		global settings
-
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
 		if group.startswith('/') or group == '':
@@ -349,15 +355,12 @@ class GroupObject(dbus.service.Object):
 			groupPath = '/' + str(group)
 
 		if name.startswith('/'):
-			itemPath = groupPath + str(name)
+			relativePath = groupPath + str(name)
 		else:
-			itemPath = groupPath + '/' + str(name)
-
-		relativePath = itemPath
-		itemPath = self._path() + relativePath
+			relativePath = groupPath + '/' + str(name)
 
 		# A prefixing underscore is an escape char: don't allow it in a normal path
-		if "/_" in itemPath:
+		if "/_" in relativePath:
 			return -2, None
 
 		if itemType not in supportedTypes:
@@ -365,159 +368,113 @@ class GroupObject(dbus.service.Object):
 
 		try:
 			value = convertToType(itemType, defaultValue)
+			if value is None:
+				return -6, None
+			defaultValue = value
+			min = convertToType(itemType, minimum)
+			max = convertToType(itemType, maximum)
+
 			if type(value) != str:
-				min = convertToType(itemType, minimum)
-				max = convertToType(itemType, maximum)
 				if min == 0 and max == 0:
-					attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-				elif value >= min and value <= max:
-					attributes = {TYPE:str(itemType), DEFAULT:str(value), MIN:str(min), MAX:str(max)}
-			else:
-				attributes = {TYPE:str(itemType), DEFAULT:str(value)}
-			attributes[SILENT] = str(silent)
+					min = None
+					max = None
+				elif value < min or value > max:
+					return -7, None
 		except:
 			return -4, None
 
-		if not itemPath in settings:
+		settingObject = self.getSettingObject(relativePath)
+		if not settingObject:
 			# New setting
 			if self.getGroup(relativePath):
 				return -8, None
 			settingObject = self.createSettingObjectAndGroups(relativePath)
+			settingObject.setAttributes(defaultValue, itemType, min, max, silent)
 		else:
 			# Existing setting
-			if settings[itemPath][ATTRIB][TYPE] != attributes[TYPE]:
+			if settingObject.type != itemType:
 				return -5, None
 
-			settingObject = self.getSettingObject(relativePath)
-
-			unmatched = set(settings[itemPath][ATTRIB].items()) ^ set(attributes.items())
-			if len(unmatched) == 0:
-				# There are no changes
+			changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
+			if not changed:
 				return 0, settingObject
 
 			# There are changes, save them while keeping the current value.
-			value = settings[itemPath][VALUE]
+			value = settingObject.value
 
-		settings[itemPath] = [0, {}]
-		settings[itemPath][ATTRIB] = attributes
-		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % (itemPath, defaultValue, itemType, minimum, maximum, silent))
+		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
+						 (self._path() + relativePath, defaultValue, itemType, minimum, maximum, silent))
 		settingObject._setValue(value, printLog=False, sendAttributes=True)
 
 		return 0, settingObject
 
+	def forAllSettings(self, function):
+		prefixLength = len(self._path() + '/')
+		ret = dbus.Dictionary(signature = dbus.Signature('sv'), variant_level=1)
+		for setting in self.getSettingObjects():
+			relPath = setting._object_path[prefixLength:]
+			value = function(setting)
+			if value is not None:
+				ret[relPath] = value
+		return ret
+
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
-		prefix = self._path() + '/'
-		return dbus.Dictionary({ k[len(prefix):]: v[VALUE] \
-			for k, v in settings.iteritems() \
-			if k.startswith(prefix) and len(k)>len(prefix) },
-			signature = dbus.Signature('sv'), variant_level=1)
+		return self.forAllSettings(lambda x: x.GetValue())
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'a{ss}')
 	def GetText(self):
-		prefix = self._path() + '/'
-		return dbus.Dictionary({ k[len(prefix):]: str(v[VALUE]) \
-			for k, v in settings.iteritems() \
-			if k.startswith(prefix) and len(k)>len(prefix) },
-			signature = dbus.Signature('ss'))
+		return self.forAllSettings(lambda x: x.GetText())
 
-## Method for converting a value the the given type.
-# When the type is not supported it simply returns the value as is.
-# @param type The type to convert to.
-# @param value The value to convert.
-# @return value The converted value (if type is supported).
 def convertToType(type, value):
-	if type in supportedTypes:
+	try:
 		return supportedTypes[type](value)
-	else:
-		return value
+	except:
+		return None
 
-## Method for parsing the file to the given dictionary.
-# The dictionary will be in following format {dbus-object-path, [value, {attributes}]}.
-# When a array is given for the groups, the found groups are appended.
-# @param file The filename (path can be included, e.g. /home/root/localsettings/settings.xml).
-# @param dictionaryItems The dictionary for the settings.
-# @param arrayGroups The array for the groups.
-def parseXmlFileToDictionary(file, dictionaryItems, arrayGroups):
+def parseXmlFile(file, items):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
-	tracing.log.debug('parseXmlFileToDictionary %s:' % file)
-	docinfo = tree.docinfo
-	tracing.log.debug("docinfo version %s" % docinfo.xml_version)
-	tracing.log.debug("docinfo encoding %s" % docinfo.encoding)
 	tracing.log.debug("settings version %s" % root.attrib)
-	tracing.log.debug(etree.tostring(root))
-	parseXmlToDictionary(root, '/', dictionaryItems, arrayGroups)
 
-## Method for parsing a xml-element to a dbus-object-path.
-# The dbus-object-path can be a setting (contains a text-value) or 
-# a group. Only for a setting attributes are added.
-# @param element The lxml-Element from the ElementTree API.
-# @param path The path of the element.
-# @param dictionaryItems The dictionary for the settings.
-# @param arrayGroups The array for the groups.
-def parseXmlToDictionary(element, path, dictionaryItems, arrayGroups):
-	if path != '/':
-		path += '/'
-	path += element.tag
-	for child in element:
-		parseXmlToDictionary(child, path, dictionaryItems, arrayGroups)
+	parseXmlEntry(root, items)
 
+def tagForXml(path):
+	if len(path) == 0:
+		return ""
+	if path[0].isdigit():
+		path = "_" + path
+	return path
+
+def tagFromXml(element):
 	# Remove possible underscore prefix
-	path = path.replace("/_", "/")
+	tag = element.tag
+	if tag[0] == '_':
+		tag = tag[1:]
+	return tag
+
+def parseXmlEntry(element, group):
+	tag = tagFromXml(element)
 
 	if element.get('type') != None:
-		elementType = element.attrib[TYPE]
-		text = element.text
-		if not element.text:
-			text = ''
-		value = convertToType(elementType, text)
-		dictionaryItems[path] = [value, element.attrib]
-	elif arrayGroups != None:
-		if not path in arrayGroups:
-			arrayGroups.append(path)
+		setting = group._newSettingObject(tag)
+		setting.fromXml(element)
+		group.addSettingObject(setting)
+	else:
+		subgroup = group.createGroups(tag)
+		if subgroup:
+			for child in element:
+				parseXmlEntry(child, subgroup)
 
-## Method for parsing a dictionary to a giving xml-file.
-# The dictionary must be in following format {dbus-object-path, [value, {attributes}]}.
-# @param dictionary The dictionary with the settings.
-# @param file The filename.
-def parseDictionaryToXmlFile(dictionary, file, newFileExtension):
+def writeToXmlFile(localSettings, settingsGroup):
 	tracing.log.debug('parseDictionaryToXmlFile %s' % file)
-	root = None
-	for key, _value in dictionary.iteritems():
-		items = key.split('/')
-		items.remove('')
-		if root == None:
-			root = etree.Element(items[0])
-			root.set(settingsTag, settingsVersion)
-			tree = etree.ElementTree(root)
-		items.remove(root.tag)
-		elem = root
-		for item in items:
-			# Prefix items starting with a digit, because an XML element cannot start with a digit.
-			if item[0].isdigit():
-				item = "_" + item
 
-			foundElem = elem.find(item)
-			if foundElem == None:
-				elem = etree.SubElement(elem, item)
-			else:
-				elem = foundElem
-		elem.text = str(_value[VALUE])
-		attributes = _value[ATTRIB]
-		for attribute, value in attributes.iteritems():
-			elem.set(attribute, str(value))
-	newFile = file + newFileExtension
-	with open(newFile, 'wb') as fp:
-		tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
-		fp.flush()
-		os.fsync(fp.fileno())
-
-	try:
-		rename(newFile, file)
-	except:
-		tracing.log.error('renaming new file to settings file failed')
+	root = etree.Element("Settings")
+	root.set(settingsTag, settingsVersion)
+	tree = etree.ElementTree(root)
+	settingsGroup.toXml(root)
+	localSettings.save(tree)
 
 def to_bool(val):
 	if type(val) != str:
@@ -530,32 +487,8 @@ def to_bool(val):
 
 	return val.lower() == 'true'
 
-
-## Validate and convert to value + attributes
-def makeDictEntry(val, itemtype, minval, maxval, silent):
-	if itemtype not in supportedTypes:
-		raise Exception('invalid type')
-
-	val = convertToType(itemtype, val)
-	attrs = { TYPE: itemtype, DEFAULT: str(val) }
-
-	if type(val) != str:
-		minval = convertToType(itemtype, minval)
-		maxval = convertToType(itemtype, maxval)
-
-		if minval or maxval:
-			if val < minval or val > maxval:
-				raise Exception('default value out of range')
-			attrs[MIN] = str(minval)
-			attrs[MAX] = str(maxval)
-
-	silent = to_bool(silent)
-	attrs[SILENT] = str(silent)
-
-	return val, attrs
-
 ## Load settings from text file
-def loadSettingsFile(name, dictionary):
+def loadSettingsFile(name, settingsGroup):
 	with open(name, 'r') as f:
 		for line in f:
 			v = re.sub('#.*', '', line).strip().split()
@@ -573,11 +506,23 @@ def loadSettingsFile(name, dictionary):
 			maxval = v[4] if len(v) > 4 else 0
 			silent = v[5] if len(v) > 5 else 0
 
-			val, attrs = makeDictEntry(defval, itemtype,
-						   minval, maxval, silent)
+			if itemtype not in supportedTypes:
+				raise Exception('invalid type')
 
-			path = '/Settings/' + path.lstrip('/')
-			dictionary[path] = [val, attrs]
+			defval = convertToType(itemtype, defval)
+
+			if type(defval) != str:
+				minval = convertToType(itemtype, minval)
+				maxval = convertToType(itemtype, maxval)
+
+				if minval or maxval:
+					if defval < minval or defval > maxval:
+						raise Exception('default value out of range')
+
+			silent = to_bool(silent)
+			path = path.lstrip('/')
+
+			settingsGroup.addSetting("", path, defval, itemtype, minval, maxval, silent)
 
 ## Load settings from each file in dir
 def loadSettingsDir(path, dictionary):
@@ -675,8 +620,6 @@ def migrate_remote_support(tree, version):
 
 ## The main function.
 class LocalSettings:
-	global settings
-
 	dbusName = 'com.victronenergy.settings'
 	fileSettings = 'settings.xml'
 	newFileExtension = '.new'
@@ -688,6 +631,8 @@ class LocalSettings:
 		self.newFileSettings = self.fileSettings + self.newFileExtension
 		self.timeoutSaveSettingsTime = timeoutSaveSettingsTime
 		self.timeoutSaveSettingsEventId = None
+		self.rootGroup = None
+		self.settingsGroup = None
 
 		# Print the logscript version
 		tracing.log.info('Localsettings version is: 0x%04x' % version)
@@ -696,9 +641,6 @@ class LocalSettings:
 		# Trace the python version.
 		pythonVersion = platform.python_version()
 		tracing.log.debug('Current python version: %s' % pythonVersion)
-
-		# load system default settings
-		loadSettingsDir(self.sysSettingsDir, settings)
 
 		if not path.isdir(pathSettings):
 			print('Error path %s does not exist!' % pathSettings)
@@ -751,20 +693,13 @@ class LocalSettings:
 			self.save(tree)
 			tracing.log.warning('Created settings file %s' % self.fileSettings)
 
-		# read the settings.xml
-		groups = []
-		parseXmlFileToDictionary(self.fileSettings, settings, groups)
-
 		# connect to the SessionBus if there is one. System otherwise
 		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 		busName = dbus.service.BusName(self.dbusName, bus)
-		root = GroupObject(busName, "/", None)
 
-		for setting in settings:
-			root.createSettingObjectAndGroups(setting)
-
-		# make sure /Settings exists, in case there are no settings at all
-		root.createGroups("/Settings")
+		self.rootGroup = GroupObject(busName, "/", None)
+		self.settingsGroup = self.rootGroup.createGroups("/Settings")
+		parseXmlFile(self.fileSettings, self.rootGroup)
 
 	def save(self, tree):
 		with open(self.newFileSettings, 'wb') as fp:
@@ -776,12 +711,10 @@ class LocalSettings:
 	## The callback method for saving the settings-xml-file.
 	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
 	def saveSettingsCallback(self):
-		global settings
-
 		tracing.log.debug('Saving settings to file')
 		source_remove(self.timeoutSaveSettingsEventId)
 		self.timeoutSaveSettingsEventId = None
-		parseDictionaryToXmlFile(settings, self.fileSettings, self.newFileExtension)
+		writeToXmlFile(self, self.settingsGroup)
 
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
@@ -854,6 +787,9 @@ def main(argv):
 	DBusGMainLoop(set_as_default=True)
 
 	localSettings = LocalSettings(pathSettings, timeoutSaveSettingsTime)
+
+	# load system default settings, note need localSettings to be ready
+	loadSettingsDir(localSettings.sysSettingsDir, localSettings.settingsGroup)
 
 	MainLoop().run()
 
