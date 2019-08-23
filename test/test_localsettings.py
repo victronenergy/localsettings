@@ -45,6 +45,7 @@ class LocalSettingsTest(unittest.TestCase):
 
 	def tearDown(self):
 		self._stopLocalSettings()
+		self._dbus.remove_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
 
 	def updateSettingsStamp(self):
 		self._settingsStamp = os.path.getmtime(self._settingsFile)
