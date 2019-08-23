@@ -4,7 +4,6 @@
 # Dbus-service for local settings.
 #
 # Below code needs a major check and cleanup. A not complete list would be:
-# - get rid of the tracing, just use the standard logging modul, as also done in dbus_conversions for example
 # - use argparse.ArgumentParser, so get rid of usage()
 
 # The local-settings-dbus-service provides the local-settings storage in non-volatile-memory.
@@ -33,21 +32,17 @@ from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
 from gobject import timeout_add, source_remove, MainLoop
-from os import path, getpid, remove, rename, _exit, environ
+from os import path, remove, rename, environ
 import sys
 import signal
 from lxml import etree
 import getopt
 import errno
-import platform
 import os
 import re
 from collections import defaultdict
 import migrate
-
-# Victron imports
-sys.path.insert(1, os.path.join(os.path.dirname(__file__), './ext/velib_python'))
-import tracing
+import logging
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
@@ -187,7 +182,7 @@ class SettingObject(dbus.service.Object):
 		global localSettings
 
 		if printLog and not self.silent:
-			tracing.log.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, self.value, value))
+			logging.info('Setting %s changed. Old: %s, New: %s' % (self._object_path, self.value, value))
 
 		self.value = value
 		localSettings.startTimeoutSaveSettings()
@@ -199,7 +194,7 @@ class SettingObject(dbus.service.Object):
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
 	def PropertiesChanged(self, changes):
-		tracing.log.debug('signal PropertiesChanged')
+		logging.debug('signal PropertiesChanged')
 
 	## Dbus method GetDefault.
 	# Returns the default value of a setting.
@@ -359,8 +354,6 @@ class GroupObject(dbus.service.Object):
 		return self._addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
 
 	def _addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
-		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
-
 		if group.startswith('/') or group == '':
 			groupPath = str(group)
 		else:
@@ -420,7 +413,7 @@ class GroupObject(dbus.service.Object):
 			# There are changes, save them while keeping the current value.
 			value = settingObject.value
 
-		tracing.log.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
+		logging.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
 						 (self._path() + relativePath, defaultValue, itemType, minimum, maximum, silent))
 		settingObject._setValue(value, printLog=False, sendAttributes=True)
 
@@ -459,8 +452,6 @@ def parseXmlFile(file, items):
 	parser = etree.XMLParser(remove_blank_text=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
-	tracing.log.debug("settings version %s" % root.attrib)
-
 	parseXmlEntry(root, items)
 
 def tagForXml(path):
@@ -491,8 +482,6 @@ def parseXmlEntry(element, group):
 				parseXmlEntry(child, subgroup)
 
 def writeToXmlFile(localSettings, settingsGroup):
-	tracing.log.debug('parseDictionaryToXmlFile %s' % file)
-
 	root = etree.Element("Settings")
 	root.set(settingsTag, settingsVersion)
 	tree = etree.ElementTree(root)
@@ -559,8 +548,7 @@ def loadSettingsDir(path, dictionary):
 		try:
 			loadSettingsFile(filename, dictionary)
 		except Exception as ex:
-			tracing.log.error('error loading %s: %s' %
-					  (filename, str(ex)))
+			logging.error('error loading %s: %s' % (filename, str(ex)))
 
 ## The main function.
 class LocalSettings:
@@ -579,29 +567,24 @@ class LocalSettings:
 		self.settingsGroup = None
 
 		# Print the logscript version
-		tracing.log.info('Localsettings version is: 0x%04x' % version)
-		tracing.log.info('Localsettings PID is: %d' % getpid())
-
-		# Trace the python version.
-		pythonVersion = platform.python_version()
-		tracing.log.debug('Current python version: %s' % pythonVersion)
+		logging.info('Localsettings version is: 0x%04x' % version)
 
 		if not path.isdir(pathSettings):
 			print('Error path %s does not exist!' % pathSettings)
 			sys.exit(errno.ENOENT)
 
 		if path.isfile(self.newFileSettings):
-			tracing.log.info('New settings file exist')
+			logging.info('New settings file exist')
 			try:
 				tree = etree.parse(self.newFileSettings)
 				root = tree.getroot()
-				tracing.log.info('New settings file %s validated' % self.newFileSettings)
+				logging.info('New settings file %s validated' % self.newFileSettings)
 				rename(self.newFileSettings, self.fileSettings)
-				tracing.log.info('renamed new settings file to settings file')
+				logging.info('renamed new settings file to settings file')
 			except:
-				tracing.log.error('New settings file %s invalid' % self.newFileSettings)
+				logging.error('New settings file %s invalid' % self.newFileSettings)
 				remove(self.newFileSettings)
-				tracing.log.error('%s removed' % self.newFileSettings)
+				logging.error('%s removed' % self.newFileSettings)
 
 		if path.isfile(self.fileSettings):
 			# Try to validate the settings file.
@@ -616,7 +599,7 @@ class LocalSettings:
 
 				migrate.migrate(self, tree, loadedVersion)
 
-				tracing.log.info('Settings file %s validated' % self.fileSettings)
+				logging.info('Settings file %s validated' % self.fileSettings)
 
 				if loadedVersionTxt != settingsVersion:
 					print("Updating version to " + settingsVersion)
@@ -624,18 +607,18 @@ class LocalSettings:
 					self.save(tree)
 
 			except:
-				tracing.log.error('Settings file %s invalid' % self.fileSettings)
+				logging.error('Settings file %s invalid' % self.fileSettings)
 				remove(self.fileSettings)
-				tracing.log.error('%s removed' % self.fileSettings)
+				logging.error('%s removed' % self.fileSettings)
 
 		# check if settings file is present, if not exit create a "empty" settings file.
 		if not path.isfile(self.fileSettings):
-			tracing.log.warning('Settings file %s not found' % self.fileSettings)
+			logging.warning('Settings file %s not found' % self.fileSettings)
 			root = etree.Element(settingsRootName)
 			root.set(settingsTag, settingsVersion)
 			tree = etree.ElementTree(root)
 			self.save(tree)
-			tracing.log.warning('Created settings file %s' % self.fileSettings)
+			logging.warning('Created settings file %s' % self.fileSettings)
 
 		# connect to the SessionBus if there is one. System otherwise
 		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
@@ -655,7 +638,6 @@ class LocalSettings:
 	## The callback method for saving the settings-xml-file.
 	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
 	def saveSettingsCallback(self):
-		tracing.log.debug('Saving settings to file')
 		source_remove(self.timeoutSaveSettingsEventId)
 		self.timeoutSaveSettingsEventId = None
 		writeToXmlFile(self, self.settingsGroup)
@@ -673,10 +655,7 @@ class LocalSettings:
 def usage():
 	print("Usage: ./localsettings [OPTION]")
 	print("-h, --help\tdisplay this help and exit")
-	print("-t\t\tenable tracing to file (standard off)")
-	print("-d\t\tset tracing level to debug (standard info)")
 	print("-v, --version\treturns the program version")
-	print("--banner\tshows program-name and version at startup")
 	print("--path=dir\tuse given dir as data directory instead of /data")
 
 def main(argv):
@@ -685,16 +664,10 @@ def main(argv):
 	pathSettings = '.'
 	timeoutSaveSettingsTime = 2
 
-	## Traces (info / debug) setup
-	pathTraces = '/log/'
-	traceFileName = 'localsettingstraces'
-	traceToConsole = True
-	tracingEnabled = True
-	traceToFile = False
-	traceDebugOn = False
+	logging.getLogger().setLevel(logging.INFO)
 
 	try:
-		opts, args = getopt.getopt(argv, "vhctd", ["help", "version", "banner", "path=", "no-delay"])
+		opts, args = getopt.getopt(argv, "vhc", ["help", "version", "path=", "no-delay"])
 	except getopt.GetoptError:
 		usage()
 		sys.exit(errno.EINVAL)
@@ -702,11 +675,6 @@ def main(argv):
 		if opt == '-h' or opt == '--help':
 			usage()
 			sys.exit()
-		elif opt == '-t':
-			tracingEnabled = True
-			traceToFile = True
-		elif opt == '-d':
-			traceDebugOn = True
 		elif opt == '-v' or opt == '--version':
 			print(version)
 			sys.exit()
@@ -715,10 +683,6 @@ def main(argv):
 		elif opt == '--no-delay':
 			print("no delay")
 			timeoutSaveSettingsTime = 0
-
-	# setup debug traces.
-	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
-	tracing.log.debug('tracingPath = %s' % pathTraces)
 
 	if pathSettings[-1] != '/':
 		pathSettings += "/"
