@@ -209,6 +209,13 @@ class SettingObject(dbus.service.Object):
 			return -1
 		return self.default
 
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
+	def SetDefault(self):
+		if self.default is None:
+			return -1
+		self.SetValue(self.default())
+		return 0
+
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
 		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
@@ -433,6 +440,11 @@ class GroupObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'a{ss}')
 	def GetText(self):
 		return self.forAllSettings(lambda x: x.GetText())
+
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
+	def SetDefault(self):
+		self.forAllSettings(lambda x: x.SetDefault())
+		return 0
 
 def convertToType(type, value):
 	try:
