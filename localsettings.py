@@ -678,15 +678,11 @@ def usage():
 	print("-v, --version\treturns the program version")
 	print("--banner\tshows program-name and version at startup")
 	print("--path=dir\tuse given dir as data directory instead of /data")
-	print("")
-	print("NOTE FOR DEBUGGING ON DESKTOP")
-	print("This code expects a path /data/conf or --path to be set, and")
-	print("permissions in that path to write/read.")
 
 def main(argv):
 	global localSettings
 
-	pathSettings = 'conf/'
+	pathSettings = '.'
 	timeoutSaveSettingsTime = 2
 
 	## Traces (info / debug) setup
@@ -716,8 +712,6 @@ def main(argv):
 			sys.exit()
 		elif opt == '--path':
 			pathSettings = arg
-			if pathSettings[-1] != '/':
-				pathSettings += "/"
 		elif opt == '--no-delay':
 			print("no delay")
 			timeoutSaveSettingsTime = 0
@@ -725,6 +719,9 @@ def main(argv):
 	# setup debug traces.
 	tracing.setupTraces(tracingEnabled, pathTraces, traceFileName, traceToConsole, traceToFile, traceDebugOn)
 	tracing.log.debug('tracingPath = %s' % pathTraces)
+
+	if pathSettings[-1] != '/':
+		pathSettings += "/"
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 

@@ -152,10 +152,3 @@ CCGX services.
 
 The localsettings script requires python dbus, gobject and xml support (for python 2.7). On a
 debian system install the packages python-dbus, python-gobject and python-lxml.
-
-Note that localsettings assumes that a writable directory /data/conf exists on your system, which is
-not available on most (all) linux systems, so you have to create it manually. Make sure the user
-running the localsettings script has write access to this directory. Alternatively, you can also
-adjust the script in order to set a different directory. In localsettings.py look for:
-
-pathSettings = '/data/conf/'
