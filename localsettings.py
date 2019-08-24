@@ -43,6 +43,7 @@ import re
 from collections import defaultdict
 import migrate
 import logging
+from enum import IntEnum, unique
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
@@ -70,6 +71,16 @@ settingsRootName = 'Settings'
 
 ## The LocalSettings instance
 localSettings = None
+
+@unique
+class AddSettingError(IntEnum):
+	UnderscorePrefix = -2
+	UnknownType = -3
+	TypeDiffer = -5
+	InvalidDefault = -6
+	DefaultOutOfRange = -7
+	IsGroup = -8
+	NotInSettings = -9
 
 class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
@@ -344,7 +355,7 @@ class GroupObject(dbus.service.Object):
 	# @param itemType Types 's' string, 'i' integer or 'f' float.
 	# @param minimum The minimum value.
 	# @param maximum The maximum value.
-	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
+	# @return completion-code When successful 0 is returned, negative otherwise.
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
 		return self._addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)[0]
@@ -369,42 +380,39 @@ class GroupObject(dbus.service.Object):
 	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent):
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in relativePath:
-			return -2, None
+			return AddSettingError.UnderscorePrefix, None
 
 		if itemType not in supportedTypes:
-			return -3, None
+			return AddSettingError.UnknownType, None
 
-		try:
-			value = convertToType(itemType, defaultValue)
-			if value is None:
-				return -6, None
-			defaultValue = value
-			min = convertToType(itemType, minimum)
-			max = convertToType(itemType, maximum)
+		value = convertToType(itemType, defaultValue)
+		if value is None:
+			return AddSettingError.InvalidDefault, None
+		defaultValue = value
+		min = convertToType(itemType, minimum)
+		max = convertToType(itemType, maximum)
 
-			if type(value) != str:
-				if min == 0 and max == 0:
-					min = None
-					max = None
-				elif value < min or value > max:
-					return -7, None
-		except:
-			return -4, None
+		if type(value) != str:
+			if min == 0 and max == 0:
+				min = None
+				max = None
+			elif value < min or value > max:
+				return AddSettingError.DefaultOutOfRange, None
 
 		if self._path() is "" and not relativePath.startswith("/Settings/"):
-			return -9, None
+			return AddSettingError.NotInSettings, None
 
 		settingObject = self.getSettingObject(relativePath)
 		if not settingObject:
 			# New setting
 			if self.getGroup(relativePath):
-				return -8, None
+				return AddSettingError.IsGroup, None
 			settingObject = self.createSettingObjectAndGroups(relativePath)
 			settingObject.setAttributes(defaultValue, itemType, min, max, silent)
 		else:
 			# Existing setting
 			if settingObject.type != itemType:
-				return -5, None
+				return AddSettingError.TypeDiffer, None
 
 			changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
 			if not changed:
