@@ -340,13 +340,13 @@ class GroupObject(dbus.service.Object):
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSetting(self, group, name, defaultValue, itemType, minimum, maximum):
-		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)[0]
+		return self._addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=False)[0]
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'ssvsvv', out_signature = 'i')
 	def AddSilentSetting(self, group, name, defaultValue, itemType, minimum, maximum):
-		return self.addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
+		return self._addSetting(group, name, defaultValue, itemType, minimum, maximum, silent=True)[0]
 
-	def addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
+	def _addSetting(self, group, name, defaultValue, itemType, minimum, maximum, silent):
 		tracing.log.debug('AddSetting %s %s %s' % (self._object_path, group, name))
 
 		if group.startswith('/') or group == '':
@@ -359,6 +359,9 @@ class GroupObject(dbus.service.Object):
 		else:
 			relativePath = groupPath + '/' + str(name)
 
+		return self.addSetting(relativePath, defaultValue, itemType, minimum, maximum, silent)
+
+	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent):
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in relativePath:
 			return -2, None
@@ -522,7 +525,7 @@ def loadSettingsFile(name, settingsGroup):
 			silent = to_bool(silent)
 			path = path.lstrip('/')
 
-			settingsGroup.addSetting("", path, defval, itemtype, minval, maxval, silent)
+			settingsGroup.addSetting(path, defval, itemtype, minval, maxval, silent)
 
 ## Load settings from each file in dir
 def loadSettingsDir(path, dictionary):
