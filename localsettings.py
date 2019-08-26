@@ -491,6 +491,65 @@ class GroupObject(dbus.service.Object):
 		self.forAllSettings(lambda x: x.SetDefault())
 		return 0
 
+# Special settings with contains class + instance. It is special since it
+# disallows duplicate values and will be set to the next free one instead
+# when attempting to set an already taken combination.
+class ClassAndVrmInstance(SettingObject):
+	def _setValue(self, value, printLog=True, sendAttributes=False):
+		valid, value = self.group._parent.assureFreeInstance(value, self)
+		if not valid:
+			return False
+		return SettingObject._setValue(self, value, printLog, sendAttributes)
+
+	def SetDefault(self):
+		return -1
+
+## Unique VRM instances
+# Just a normal group, except for ClassAndInstance which is a special setting
+class DeviceGroup(GroupObject):
+	def _newSettingObject(self, tag):
+		if tag == "ClassAndVrmInstance":
+			return ClassAndVrmInstance(self._busName, self._object_path + "/" + tag)
+		return SettingObject(self._busName, self._object_path + "/" + tag)
+
+# Assure unique instances per class. The value of ClassAndVrmInstance is e.g.
+# battery:1 / battery:2 etc. The instances are stored under per device unique
+# strings, so e.g.:
+#
+# /unique1/ClassAndVrmInstance
+# /unique2/ClassAndVrmInstance
+#
+# When adding or attempting to change the ClassAndVrmInstance which is already
+# taken, it will be set to the next free one.
+class DevicesGroup(GroupObject):
+	def _newSubGroup(self, path):
+		return DeviceGroup(self._busName, path, self)
+
+	# Make sure classInstanceStr is updated to a free one.
+	# returns False if the string cannot be parsed.
+	def assureFreeInstance(self, classInstanceStr, settingObject):
+		if not type(classInstanceStr) is dbus.String and not type(classInstanceStr) is str:
+			return False, None
+		parts = classInstanceStr.split(":")
+		if len(parts) != 2:
+			return False, None
+		devClass = parts[0]
+		try:
+			instance = int(parts[1])
+		except:
+			return False, None
+
+		taken = self.forAllSettings(lambda x: x.GetValue() if x is not settingObject and \
+									x.id() == "ClassAndVrmInstance" and \
+									x.GetValue().startswith(devClass + ":") else None).values()
+
+		while True:
+			if classInstanceStr not in taken:
+				return True, classInstanceStr
+			instance += 1
+			classInstanceStr = devClass + ":" + str(instance)
+
+# Helpers
 def convertToType(type, value):
 	try:
 		return supportedTypes[type](value)
@@ -676,6 +735,8 @@ class LocalSettings:
 		self.rootGroup = GroupObject(busName, "/", None, removable = False)
 		self.settingsGroup = self.rootGroup.createGroups("/Settings")
 		self.settingsGroup._removable = False
+		devices = DevicesGroup(busName, "/Settings/Devices", self.settingsGroup, removable = False)
+		self.settingsGroup.addGroup("Devices", devices)
 		parseXmlFile(self.fileSettings, self.rootGroup)
 
 	def save(self, tree):
