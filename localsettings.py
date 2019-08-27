@@ -173,7 +173,8 @@ class SettingObject(dbus.service.Object):
 			return -1
 
 		if v != self.value:
-			self._setValue(v)
+			if not self._setValue(v):
+				return -1
 
 		return 0
 
@@ -208,6 +209,8 @@ class SettingObject(dbus.service.Object):
 		if sendAttributes:
 			change.update({'Min': self.GetMin(), 'Max': self.GetMax(), 'Default': self.GetDefault()})
 		self.PropertiesChanged(change)
+
+		return True
 
 	@dbus.service.signal(InterfaceBusItem, signature = 'a{sv}')
 	def PropertiesChanged(self, changes):
@@ -418,9 +421,11 @@ class GroupObject(dbus.service.Object):
 		if self._path() is "" and not relativePath.startswith("/Settings/"):
 			return AddSettingError.NotInSettings, None
 
+		newSetting = False
 		settingObject = self.getSettingObject(relativePath)
 		if not settingObject:
 			# New setting
+			newSetting = True
 			if self.getGroup(relativePath):
 				return AddSettingError.IsGroup, None
 			settingObject = self.createSettingObjectAndGroups(relativePath)
@@ -437,9 +442,12 @@ class GroupObject(dbus.service.Object):
 			# There are changes, save them while keeping the current value.
 			value = settingObject.value
 
+		if not settingObject._setValue(value, printLog=False, sendAttributes=True) and newSetting:
+			settingObject.remove()
+			return AddSettingError.InvalidDefault, None
+
 		logging.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
 						 (self._path() + relativePath, defaultValue, itemType, minimum, maximum, silent))
-		settingObject._setValue(value, printLog=False, sendAttributes=True)
 
 		return 0, settingObject
 
