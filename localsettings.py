@@ -98,6 +98,12 @@ class SettingObject(dbus.service.Object):
 		self.silent = False
 		self.type = None
 
+	def remove(self):
+		self.remove_from_connection()
+		if self.group:
+			self.group._settings.pop(self.id())
+		self.group.cleanup()
+
 	def fromXml(self, element):
 		elementType = element.attrib["type"]
 		e = element.attrib
@@ -227,12 +233,13 @@ class SettingObject(dbus.service.Object):
 		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
 
 class GroupObject(dbus.service.Object):
-	def __init__(self, busname, path, parent):
+	def __init__(self, busname, path, parent, removable = True):
 		dbus.service.Object.__init__(self, busname, path)
 		self._parent = parent
 		self._children = {}
 		self._settings = {}
 		self._busName = busname
+		self._removable = removable
 
 	def toXml(self, element):
 		for childId in self._children:
@@ -242,6 +249,15 @@ class GroupObject(dbus.service.Object):
 		for settingId in self._settings:
 			subElement = etree.SubElement(element, tagForXml(settingId))
 			self._settings[settingId].toXml(subElement)
+
+	def cleanup(self):
+		if not self._removable:
+			return
+		if not self._children and not self._settings:
+			if self._parent:
+				self._parent._children.pop(self._object_path.split("/")[-1])
+				self._parent.cleanup()
+			self.remove_from_connection()
 
 	def _path(self):
 		return "" if self._object_path == "/" else self._object_path
@@ -426,6 +442,23 @@ class GroupObject(dbus.service.Object):
 		settingObject._setValue(value, printLog=False, sendAttributes=True)
 
 		return 0, settingObject
+
+	@dbus.service.method(InterfaceSettings, in_signature = 'as', out_signature = 'ai')
+	def RemoveSettings(self, settings):
+		global localSettings
+		ret = []
+
+		for setting in settings:
+			settingObject = self.getSettingObject(setting)
+			if settingObject:
+				settingObject.remove()
+				ret.append(0)
+			else:
+				ret.append(-1)
+
+		localSettings.startTimeoutSaveSettings()
+		
+		return ret
 
 	def forAllSettings(self, function):
 		prefixLength = len(self._path() + '/')
@@ -632,8 +665,9 @@ class LocalSettings:
 		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 		busName = dbus.service.BusName(self.dbusName, bus)
 
-		self.rootGroup = GroupObject(busName, "/", None)
+		self.rootGroup = GroupObject(busName, "/", None, removable = False)
 		self.settingsGroup = self.rootGroup.createGroups("/Settings")
+		self.settingsGroup._removable = False
 		parseXmlFile(self.fileSettings, self.rootGroup)
 
 	def save(self, tree):
