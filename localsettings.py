@@ -3,9 +3,6 @@
 ## @package localsettings
 # Dbus-service for local settings.
 #
-# Below code needs a major check and cleanup. A not complete list would be:
-# - use argparse.ArgumentParser, so get rid of usage()
-
 # The local-settings-dbus-service provides the local-settings storage in non-volatile-memory.
 # The settings are stored in the settings.xml file. At startup the xml file is parsed and
 # the dbus-service with his paths are created from the content of the xml file.
@@ -36,7 +33,6 @@ from os import path, remove, rename, environ
 import sys
 import signal
 from lxml import etree
-import getopt
 import errno
 import os
 import re
@@ -44,6 +40,7 @@ from collections import defaultdict
 import migrate
 import logging
 from enum import IntEnum, unique
+import argparse
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
@@ -763,46 +760,31 @@ class LocalSettings:
 		self.timeoutSaveSettingsEventId = timeout_add(self.timeoutSaveSettingsTime * 1000,
 														self.saveSettingsCallback)
 
-def usage():
-	print("Usage: ./localsettings [OPTION]")
-	print("-h, --help\tdisplay this help and exit")
-	print("-v, --version\treturns the program version")
-	print("--path=dir\tuse given dir as data directory instead of /data")
-
 def main(argv):
 	global localSettings
 
-	pathSettings = '.'
-	timeoutSaveSettingsTime = 2
-
 	logging.getLogger().setLevel(logging.INFO)
 
-	try:
-		opts, args = getopt.getopt(argv, "vhc", ["help", "version", "path=", "no-delay"])
-	except getopt.GetoptError:
-		usage()
-		sys.exit(errno.EINVAL)
-	for opt, arg in opts:
-		if opt == '-h' or opt == '--help':
-			usage()
-			sys.exit()
-		elif opt == '-v' or opt == '--version':
-			print(version)
-			sys.exit()
-		elif opt == '--path':
-			pathSettings = arg
-		elif opt == '--no-delay':
-			print("no delay")
-			timeoutSaveSettingsTime = 0
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--path', help = 'use given dir as data directory', default = ".")
+	parser.add_argument('--no-delay', action = 'store_true',
+							help = "don't delay storing the settings (used by the test script)")
+	parser.add_argument('-v', '--version', action = 'store_true',
+							help = "returns the program version")
+	args = parser.parse_args(argv)
 
-	if pathSettings[-1] != '/':
-		pathSettings += "/"
+	if args.version:
+		print("v%01x.%02x" % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
+		sys.exit()
+
+	if args.path[-1] != '/':
+		args.path += "/"
 
 	print("localsettings v%01x.%02x starting up " % (FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR))
 
 	DBusGMainLoop(set_as_default=True)
 
-	localSettings = LocalSettings(pathSettings, timeoutSaveSettingsTime)
+	localSettings = LocalSettings(args.path, 0 if args.no_delay else 2)
 
 	# load system default settings, note need localSettings to be ready
 	loadSettingsDir(localSettings.sysSettingsDir, localSettings.settingsGroup)
