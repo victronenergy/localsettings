@@ -414,6 +414,9 @@ class GroupObject(dbus.service.Object):
 				max = None
 			elif value < min or value > max:
 				return AddSettingError.DefaultOutOfRange, None
+		else:
+			min = None
+			max = None
 
 		if self._path() is "" and not relativePath.startswith("/Settings/"):
 			return AddSettingError.NotInSettings, None
@@ -548,6 +551,8 @@ class DevicesGroup(GroupObject):
 
 # Helpers
 def convertToType(type, value):
+	if value is None:
+		return None
 	try:
 		return supportedTypes[type](value)
 	except:
