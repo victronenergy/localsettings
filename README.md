@@ -13,7 +13,7 @@ com.victronenergy.settings as well. Some reasons for doing it this way are:
 
 ## D-Bus API
 #### AddSetting
-Call this function on the /Settings path.
+This function can be called on any path, which is not a setting.
 
 Parameters:
 - Groupname
@@ -25,19 +25,33 @@ Parameters:
 - Max value
 
 Return code:
-*  0 = OK
-* -1 = Error, see code for details
-* -2 = Error, one of the sections starts with an underscore, and that is not
-  allowed. For example /_GUI/Brightness.
-* -3 = Error, unsupport type
-* -4 = Error, error converting value and min/max to the specified type
-* -5 = Error, a setting is being re-added which has a different type.
+* 0 = OK
+* Negative, see AddSettingError in the source for details
 
 Notes:
 * Set both min and max to 0 to work without a min and max value
 * Executing AddSetting for a path that already exists will not cause the existing
   value to be changed. In other words, it is safe to call AddSetting without first
   checking if that setting, aka path, is already there.
+
+#### AddSettings
+Like above command, but uses a single array of dictionaries for parameters.
+
+Required parameters:
+- "path" the (relative) path for the setting. /Settings/Display/Brightness when called \
+  on / or /Display/Brightness when called on /Settings etc.
+- "default" the default value of the setting. The type of the default values determines \
+  the setting type.
+
+Optional parameters:
+- "min"
+- "max"
+- "silent" don't log changes
+
+#### RemoveSettings
+Removes all settings for a given array with paths
+
+returns an array with 0 for success and -1 for failure.
 
 #### GetValue
 Returns the value. Call this function on the path of which you want to read the
@@ -62,25 +76,12 @@ See source code
 #### SetDefault
 See source code
 
-#### GetVrmDeviceInstance
-Call this function on the /Services/VrmDeviceInstances path.
-
-Parameters:
-- Unique-Id (e.g. protocol + a serial number or some other unique identifying string)
-- device class (battery,solarcharger,grid, the third component in the service
-  name)
-- Preferred instance number (the device instance that is preferred, an integer)
-
-Return value:
-* \>= 0, the allocated device instance number
-* -1 = Error
-
-Notes:
-* The unique-id must be an alphanumerical string (underscores allowed).
-* If the preferred device instance number is not available, the next available
-  number that is greater than the preferred number will be returned.
-* Actual deviceinstance allocations are stored in `/Settings/VrmDeviceInstances
-/{class}/{unique-id}/DeviceInstance`.
+#### Vrm Device Instances
+Localsettings can assign unique numbers per device class to a device. The single
+parameter for them is class:instance, battery:1 for example. When adding the
+special setting, /Settings/Devices/UniqueDeviceNumber/ClassAndVrmInstance
+it will be set to an unique one. So if the default is set to battery:1 and
+that one already existed, it might get set to battery:2 for example.
 
 ## Usage examples and libraries
 ### Command line
@@ -99,6 +100,11 @@ exists, and will not overwrite an existing value. Example with commandline tool:
 3. Or write it:
 
     dbus -y com.victronenergy.settings /Settings/GUI/Brightness SetValue 50
+
+4. dbus com.victronenergy.settings /Settings AddSettings \
+'%[{"path": "Int", "default": 5}, {"path": "Float", "default": 5.0}, {"path": "String", "default": "string"}]'
+
+5. dbus com.victronenergy.settings /Settings RemoveSettings '%["Int", "Float", "String"]'
 
 Obviously you won't be calling dbus -y everytime, but implement some straight dbus
 interface in your code. Below are some examples for different languages.
