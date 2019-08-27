@@ -73,6 +73,7 @@ localSettings = None
 class AddSettingError(IntEnum):
 	UnderscorePrefix = -2
 	UnknownType = -3
+	InvalidPath = -4
 	TypeDiffer = -5
 	InvalidDefault = -6
 	DefaultOutOfRange = -7
@@ -412,7 +413,11 @@ class GroupObject(dbus.service.Object):
 			if min == 0 and max == 0:
 				min = None
 				max = None
-			elif value < min or value > max:
+
+			if min is not None and value < min:
+				return AddSettingError.DefaultOutOfRange, None
+
+			if max is not None and value > max:
 				return AddSettingError.DefaultOutOfRange, None
 		else:
 			min = None
@@ -450,6 +455,44 @@ class GroupObject(dbus.service.Object):
 						 (self._path() + relativePath, defaultValue, itemType, minimum, maximum, silent))
 
 		return 0, settingObject
+
+	@dbus.service.method(InterfaceSettings, in_signature = 'aa{sv}', out_signature = 'aa{sv}')
+	def AddSettings(self, definition):
+		ret = []
+
+		for props in definition:
+			result = {}
+			ret.append(result)
+
+			path = props.get("path")
+			if type(path) is not dbus.String:
+				if path:
+					result["path"] = path
+				result["error"] = AddSettingError.InvalidPath
+				continue
+
+			result["path"] = path
+			default = props.get("default")
+			typeName = ""
+			if type(default) is dbus.Int32:
+				typeName = "i"
+			elif type(default) is dbus.Double:
+				typeName = "f"
+			elif type(default) is dbus.String:
+				typeName = "s"
+			else:
+				result["error"] = AddSettingError.UnknownType
+				continue
+
+			silent = False
+			if props.get("silent"):
+				silent = True
+
+			result["error"], setting = self.addSetting(path, default, typeName, props.get("min"), props.get("max"), silent)
+			if setting:
+				result["value"] = setting.GetValue()
+
+		return ret
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'as', out_signature = 'ai')
 	def RemoveSettings(self, settings):
