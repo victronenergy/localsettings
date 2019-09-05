@@ -452,7 +452,7 @@ class GroupObject(dbus.service.Object):
 			return AddSettingError.InvalidDefault, None
 
 		logging.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
-						 (self._path() + relativePath, defaultValue, itemType, minimum, maximum, silent))
+						 (self._path() + "/" + relativePath, defaultValue, itemType, minimum, maximum, silent))
 
 		return 0, settingObject
 
