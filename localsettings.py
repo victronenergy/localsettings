@@ -508,7 +508,7 @@ class GroupObject(dbus.service.Object):
 				ret.append(-1)
 
 		localSettings.startTimeoutSaveSettings()
-		
+
 		return ret
 
 	def forAllSettings(self, function):
