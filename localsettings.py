@@ -759,7 +759,8 @@ class LocalSettings:
 					root.set(settingsTag, settingsVersion)
 					self.save(tree)
 
-			except:
+			except Exception as e:
+				print(e)
 				logging.error('Settings file %s invalid' % self.fileSettings)
 				remove(self.fileSettings)
 				logging.error('%s removed' % self.fileSettings)
