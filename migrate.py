@@ -7,6 +7,13 @@ def delete_from_tree(tree, path):
 		return
 	obj[0].getparent().remove(obj[0])
 
+def create_or_update_node(parent, tag, value, type = "i"):
+	child = parent.find(tag)
+	if child is None:
+		child = etree.SubElement(parent, tag)
+	child.text = str(value)
+	child.set("type", type)
+
 ## Migrate old canbus settings
 def migrate_can_profile(localSettings, tree, version):
 	if version != 1:
@@ -48,9 +55,7 @@ def migrate_can_profile(localSettings, tree, version):
 	if inter == None:
 		inter = etree.SubElement(canbus, interface)
 
-	prof = etree.SubElement(inter, "Profile")
-	prof.text = str(profile)
-	prof.set('type', 'i')
+	create_or_update_node(inter, "Profile", profile)
 
 	delete_from_tree(tree, "/Settings/Services/LgResu")
 	delete_from_tree(tree, "/Settings/Services/OceanvoltMotorDrive")
@@ -72,9 +77,7 @@ def migrate_remote_support(localSettings, tree, version):
 	if system == None:
 		system = system.SubElement(settings, "System")
 
-	prof = etree.SubElement(system, "SSHLocal")
-	prof.text = "1"
-	prof.set('type', 'i')
+	create_or_update_node(system, "SSHLocal", 1)
 
 def migrate_mqtt(localSettings, tree, version):
 	if version > 2:
@@ -82,6 +85,9 @@ def migrate_mqtt(localSettings, tree, version):
 
 	settings = tree.getroot()
 	services = settings.find("Services")
+
+	if services == None:
+		return
 
 	mqtt_local = 0
 	mqtt_local_insec = 0
@@ -95,17 +101,9 @@ def migrate_mqtt(localSettings, tree, version):
 	if tree.xpath("/Settings/Services/Vrmpubnub/text()") == ["1"]:
 		mqtt_vrm = 1
 
-	elem = etree.SubElement(services, "MqttLocal")
-	elem.text = str(mqtt_local)
-	elem.set("type", "i")
-
-	elem = etree.SubElement(services, "MqttLocalInsecure")
-	elem.text = str(mqtt_local_insec)
-	elem.set("type", "i")
-
-	elem = etree.SubElement(services, "MqttVrm")
-	elem.text = str(mqtt_vrm)
-	elem.set("type", "i")
+	create_or_update_node(services, "MqttLocal", mqtt_local)
+	create_or_update_node(services, "MqttLocalInsecure", mqtt_local_insec)
+	create_or_update_node(services, "MqttVrm", mqtt_vrm)
 
 	delete_from_tree(tree, "/Settings/Services/Mqtt")
 	delete_from_tree(tree, "/Settings/Services/Vrmpubnub")
