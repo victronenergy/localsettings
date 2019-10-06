@@ -226,7 +226,7 @@ class SettingObject(dbus.service.Object):
 	def SetDefault(self):
 		if self.default is None:
 			return -1
-		self.SetValue(self.default())
+		self.SetValue(self.default)
 		return 0
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
