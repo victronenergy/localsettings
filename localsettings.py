@@ -726,19 +726,6 @@ class LocalSettings:
 			print('Error path %s does not exist!' % pathSettings)
 			sys.exit(errno.ENOENT)
 
-		if path.isfile(self.newFileSettings):
-			logging.info('New settings file exist')
-			try:
-				tree = etree.parse(self.newFileSettings)
-				root = tree.getroot()
-				logging.info('New settings file %s validated' % self.newFileSettings)
-				rename(self.newFileSettings, self.fileSettings)
-				logging.info('renamed new settings file to settings file')
-			except:
-				logging.error('New settings file %s invalid' % self.newFileSettings)
-				remove(self.newFileSettings)
-				logging.error('%s removed' % self.newFileSettings)
-
 		if path.isfile(self.fileSettings):
 			# Try to validate the settings file.
 			try:
