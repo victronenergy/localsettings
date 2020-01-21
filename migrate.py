@@ -110,7 +110,17 @@ def migrate_mqtt(localSettings, tree, version):
 
 	localSettings.save(tree)
 
+def migrate_remotesupport2(localSettings, tree, version):
+	if version > 3:
+		return
+
+	# moved, now stores ip and port
+	delete_from_tree(tree, "/Settings/System/RemoteSupportPort")
+
+	localSettings.save(tree)
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
 	migrate_mqtt(localSettings, tree, version)
+	migrate_remotesupport2(localSettings, tree, version)
