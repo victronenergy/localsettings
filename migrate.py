@@ -113,8 +113,41 @@ def migrate_remotesupport2(localSettings, tree, version):
 	# moved, now stores ip and port
 	delete_from_tree(tree, "/Settings/System/RemoteSupportPort")
 
+def propFloatToInt(elem, name):
+	try:
+		elem.set(name, str(int(float(elem.get(name, "0.0")))))
+	except Exception as e:
+		print(e)
+		return
+
+def elemFloatToInt(elem):
+	elem.set("type", "i")
+	propFloatToInt(elem, "min")
+	propFloatToInt(elem, "max")
+	propFloatToInt(elem, "default")
+	try:
+		elem.text = str(int(float(elem.get(elem.text, "0.0"))))
+	except Exception as e:
+		print(e)
+		return
+
+def elemsFloatToInt(elements):
+	for elem in elements:
+		elemFloatToInt(elem)
+
+def migrate_adc(localSettings, tree, version):
+	if version > 4:
+		return
+
+	# These integers were incorrectly stored as floats.
+	elemsFloatToInt(tree.xpath("/Settings/AnalogInput/Resistive/*/Function"))
+	elemsFloatToInt(tree.xpath("/Settings/AnalogInput/Temperature/*/Function"))
+	elemsFloatToInt(tree.xpath("/Settings/Tank/*/FluidType"))
+	elemsFloatToInt(tree.xpath("/Settings/Temperature/*/TemperatureType"))
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
 	migrate_mqtt(localSettings, tree, version)
 	migrate_remotesupport2(localSettings, tree, version)
+	migrate_adc(localSettings, tree, version)
