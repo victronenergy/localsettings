@@ -62,8 +62,6 @@ def migrate_can_profile(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/Services/OceanvoltValence")
 	delete_from_tree(tree, "/Settings/Services/VeCan")
 
-	localSettings.save(tree)
-
 def migrate_remote_support(localSettings, tree, version):
 	if version != 1:
 		return
@@ -108,16 +106,12 @@ def migrate_mqtt(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/Services/Mqtt")
 	delete_from_tree(tree, "/Settings/Services/Vrmpubnub")
 
-	localSettings.save(tree)
-
 def migrate_remotesupport2(localSettings, tree, version):
 	if version > 3:
 		return
 
 	# moved, now stores ip and port
 	delete_from_tree(tree, "/Settings/System/RemoteSupportPort")
-
-	localSettings.save(tree)
 
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
