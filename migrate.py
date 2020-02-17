@@ -143,6 +143,7 @@ def migrate_adc(localSettings, tree, version):
 	elemsFloatToInt(tree.xpath("/Settings/AnalogInput/Resistive/*/Function"))
 	elemsFloatToInt(tree.xpath("/Settings/AnalogInput/Temperature/*/Function"))
 	elemsFloatToInt(tree.xpath("/Settings/Tank/*/FluidType"))
+	elemsFloatToInt(tree.xpath("/Settings/Tank/*/Standard"))
 	elemsFloatToInt(tree.xpath("/Settings/Temperature/*/TemperatureType"))
 
 def migrate(localSettings, tree, version):
