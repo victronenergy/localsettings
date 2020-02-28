@@ -127,6 +127,7 @@ def elemFloatToInt(elem):
 	propFloatToInt(elem, "default")
 	try:
 		elem.text = str(int(float(elem.get(elem.text, "0.0"))))
+		elem.tag = elem.tag + "2"
 	except Exception as e:
 		print(e)
 		return
@@ -136,7 +137,7 @@ def elemsFloatToInt(elements):
 		elemFloatToInt(elem)
 
 def migrate_adc(localSettings, tree, version):
-	if version > 4:
+	if version > 5:
 		return
 
 	# These integers were incorrectly stored as floats.

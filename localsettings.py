@@ -62,7 +62,7 @@ supportedTypes = {
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
-settingsVersion = '5'
+settingsVersion = '6'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
 
