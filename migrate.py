@@ -126,6 +126,7 @@ def elemFloatToInt(elem):
 	propFloatToInt(elem, "max")
 	propFloatToInt(elem, "default")
 	try:
+		delete_from_tree(elem.getparent(), elem.tag + "2")
 		elem.text = str(int(float(elem.get(elem.text, "0.0"))))
 		elem.tag = elem.tag + "2"
 	except Exception as e:
