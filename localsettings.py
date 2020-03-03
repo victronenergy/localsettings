@@ -56,7 +56,7 @@ InterfaceSettings = 'com.victronenergy.Settings'
 ## Supported types for convert xml-text to value.
 supportedTypes = {
 	'i': int,
-	's': str,
+	's': unicode,
 	'f': float,
 }
 
@@ -125,7 +125,7 @@ class SettingObject(dbus.service.Object):
 		self.storeAttribute(element, "max")
 		self.storeAttribute(element, "default")
 		self.storeAttribute(element, "silent")
-		element.text = str(self.value)
+		element.text = unicode(self.value)
 
 	def id(self):
 		return self._object_path.split("/")[-1]
@@ -152,7 +152,7 @@ class SettingObject(dbus.service.Object):
 	# Returns the value as string of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
-		return str(self.value)
+		return unicode(self.value)
 
 	## Dbus method SetValue
 	# Sets the value of a setting. When the type of the setting is a integer or float,
