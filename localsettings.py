@@ -409,7 +409,7 @@ class GroupObject(dbus.service.Object):
 		min = convertToType(itemType, minimum)
 		max = convertToType(itemType, maximum)
 
-		if type(value) != str:
+		if type(value) != str and type(value) != unicode:
 			if min == 0 and max == 0:
 				min = None
 				max = None
@@ -571,7 +571,7 @@ class DevicesGroup(GroupObject):
 	# Make sure classInstanceStr is updated to a free one.
 	# returns False if the string cannot be parsed.
 	def assureFreeInstance(self, classInstanceStr, settingObject):
-		if not type(classInstanceStr) is dbus.String and not type(classInstanceStr) is str:
+		if not type(classInstanceStr) is dbus.String and not type(classInstanceStr) is str and not type(classInstanceStr) is unicode:
 			return False, None
 		parts = classInstanceStr.split(":")
 		if len(parts) != 2:
@@ -642,7 +642,7 @@ def writeToXmlFile(localSettings, settingsGroup):
 	localSettings.save(tree)
 
 def toBool(val):
-	if type(val) != str:
+	if type(val) != str and type(val) != unicode:
 		return bool(val)
 
 	try:
@@ -676,7 +676,7 @@ def loadSettingsFile(name, settingsGroup):
 
 			defVal = convertToType(itemType, defVal)
 
-			if type(defVal) != str:
+			if type(defVal) != str and type(defVal) != unicode:
 				minVal = convertToType(itemType, minVal)
 				maxVal = convertToType(itemType, maxVal)
 
