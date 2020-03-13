@@ -148,9 +148,65 @@ def migrate_adc(localSettings, tree, version):
 	elemsFloatToInt(tree.xpath("/Settings/Tank/*/Standard"))
 	elemsFloatToInt(tree.xpath("/Settings/Temperature/*/TemperatureType"))
 
+def migrate_cgwacs_deviceinstance(localSettings, tree, version):
+	if version > 7:
+		return
+
+	devices = tree.getroot().find("Devices")
+	if devices is None:
+		devices = etree.SubElement(tree.getroot(), 'Devices')
+
+	for e in tree.xpath("/Settings/CGwacs/Devices/*"):
+		serial = e.tag[1:] # numbers are prefixed with D
+		if serial[0].isdigit():
+			serial = '_' + serial
+
+		container = devices.find(serial)
+		if container is None:
+			container = etree.SubElement(devices, serial)
+
+		# migrate device instance and phase support
+		servicetype = e.xpath('ServiceType/text()')[0]
+		deviceinstance = e.xpath('DeviceInstance/text()')[0]
+		devicetype = int(e.xpath('DeviceType/text()')[0])
+		create_or_update_node(container, 'ClassAndVrmInstance',
+			'{}:{}'.format(servicetype, deviceinstance), 's')
+		create_or_update_node(container, 'SupportMultiphase',
+			int((71 <= devicetype <= 73) or (340 <= devicetype <= 345)), 'i')
+
+		# Move these to the right location
+		for setting, typ in (('CustomName', 's'), ('L1ReverseEnergy', 'f'),
+				('L2ReverseEnergy', 'f'), ('L3ReverseEnergy', 'f'), 
+				('Position', 'i')):
+			old = e.xpath(setting + '/text()')
+			if old:
+				create_or_update_node(container, setting, old[0], typ)
+
+		# This was renamed, because Multiphase is one word
+		create_or_update_node(container, 'IsMultiphase',
+			e.xpath('IsMultiPhase/text()')[0], 'i')
+
+		# Migrate piggyback settings to secondary device
+		piggy = '{}_S'.format(serial)
+		container = devices.find(piggy)
+		if container is None:
+			container = etree.SubElement(devices, piggy)
+
+		create_or_update_node(container, 'ClassAndVrmInstance',
+			'pvinverter:{}'.format(e.xpath('L2/DeviceInstance/text()')[0]), 's')
+		create_or_update_node(container, 'Enabled',
+			int(e.xpath('L2/ServiceType/text()') == ["pvinverter"]), 'i')
+		create_or_update_node(container, 'Position', e.xpath('L2/Position/text()')[0], 'i')
+		cn = e.xpath('L2/CustomName/text()')
+		if cn:
+			create_or_update_node(container, 'CustomName', cn[0], 's')
+
+	delete_from_tree(tree, "/Settings/CGwacs/Devices")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
 	migrate_mqtt(localSettings, tree, version)
 	migrate_remotesupport2(localSettings, tree, version)
 	migrate_adc(localSettings, tree, version)
+	migrate_cgwacs_deviceinstance(localSettings, tree, version)
