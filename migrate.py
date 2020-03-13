@@ -73,7 +73,7 @@ def migrate_remote_support(localSettings, tree, version):
 	settings = tree.getroot()
 	system = settings.find("System")
 	if system == None:
-		system = system.SubElement(settings, "System")
+		system = etree.SubElement(settings, "System")
 
 	create_or_update_node(system, "SSHLocal", 1)
 
