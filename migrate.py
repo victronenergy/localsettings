@@ -203,6 +203,24 @@ def migrate_cgwacs_deviceinstance(localSettings, tree, version):
 
 	delete_from_tree(tree, "/Settings/CGwacs/Devices")
 
+def migrate_fronius_deviceinstance(localSettings, tree, version):
+	if version > 7:
+		return
+
+	devices = tree.getroot().find("Devices")
+	if devices is None:
+		devices = etree.SubElement(tree.getroot(), 'Devices')
+
+	inverters = tree.xpath("/Settings/Fronius/InverterIds/text()")
+	if inverters:
+		inverters = inverters[0].split(",")
+		for idx, inverter in enumerate(inverters):
+			container = devices.find(inverter)
+			if container is None:
+				container = etree.SubElement(devices, inverter)
+			create_or_update_node(container, 'ClassAndVrmInstance',
+				'pvinverter:{}'.format(20 + idx), 's')
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -210,3 +228,4 @@ def migrate(localSettings, tree, version):
 	migrate_remotesupport2(localSettings, tree, version)
 	migrate_adc(localSettings, tree, version)
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
+	migrate_fronius_deviceinstance(localSettings, tree, version)
