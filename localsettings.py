@@ -782,6 +782,7 @@ class LocalSettings:
 			dst_dir = os.path.normpath(os.path.dirname(self.fileSettings))
 			fd = os.open(dst_dir, 0)
 			os.fsync(fd)
+			os.close(fd)
 
 	## The callback method for saving the settings-xml-file.
 	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
