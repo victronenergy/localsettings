@@ -14,6 +14,24 @@ def create_or_update_node(parent, tag, value, type = "i"):
 	child.text = str(value)
 	child.set("type", type)
 
+def create_node(parent, tag, value, type = "i"):
+	child = parent.find(tag)
+	if child is not None:
+		return
+
+	child = etree.SubElement(parent, tag)
+	child.text = str(value)
+	child.set("type", type)
+
+def rename_node(node, new_name):
+	if node == None:
+		return
+	parent = node.getparent()
+	if parent == None:
+		return
+	delete_from_tree(parent, new_name)
+	node.tag = new_name
+
 ## Migrate old canbus settings
 def migrate_can_profile(localSettings, tree, version):
 	if version != 1:
@@ -148,8 +166,27 @@ def migrate_adc(localSettings, tree, version):
 	elemsFloatToInt(tree.xpath("/Settings/Tank/*/Standard"))
 	elemsFloatToInt(tree.xpath("/Settings/Temperature/*/TemperatureType"))
 
+def migrate_fixup_cgwacs(localSettings, tree, version):
+	if version > 8:
+		return
+
+	elem = tree.xpath("/Settings/CGwacs/DeviceIds/text()")
+	if len(elem) == 0:
+		return
+	ids = elem[0].split(",")
+	for ident in ids:
+		dev = tree.xpath("/Settings/Devices/" + ident)
+		if len(dev) == 0:
+			continue
+		rename_node(dev[0], "cgwacs_" + ident)
+
+		dev = tree.xpath("/Settings/Devices/" + ident + "_S")
+		if len(dev) == 0:
+			continue
+		rename_node(dev[0], "cgwacs_" + ident + "_S")
+
 def migrate_cgwacs_deviceinstance(localSettings, tree, version):
-	if version > 7:
+	if version > 8:
 		return
 
 	devices = tree.getroot().find("Devices")
@@ -167,9 +204,9 @@ def migrate_cgwacs_deviceinstance(localSettings, tree, version):
 		servicetype = e.xpath('ServiceType/text()')[0]
 		deviceinstance = e.xpath('DeviceInstance/text()')[0]
 		devicetype = int(e.xpath('DeviceType/text()')[0])
-		create_or_update_node(container, 'ClassAndVrmInstance',
+		create_node(container, 'ClassAndVrmInstance',
 			'{}:{}'.format(servicetype, deviceinstance), 's')
-		create_or_update_node(container, 'SupportMultiphase',
+		create_node(container, 'SupportMultiphase',
 			int((71 <= devicetype <= 73) or (340 <= devicetype <= 345)), 'i')
 
 		# Move these to the right location
@@ -178,10 +215,10 @@ def migrate_cgwacs_deviceinstance(localSettings, tree, version):
 				('Position', 'i')):
 			old = e.xpath(setting + '/text()')
 			if old:
-				create_or_update_node(container, setting, old[0], typ)
+				create_node(container, setting, old[0], typ)
 
 		# This was renamed, because Multiphase is one word
-		create_or_update_node(container, 'IsMultiphase',
+		create_node(container, 'IsMultiphase',
 			e.xpath('IsMultiPhase/text()')[0], 'i')
 
 		# Migrate piggyback settings to secondary device
@@ -190,14 +227,14 @@ def migrate_cgwacs_deviceinstance(localSettings, tree, version):
 		if container is None:
 			container = etree.SubElement(devices, piggy)
 
-		create_or_update_node(container, 'ClassAndVrmInstance',
+		create_node(container, 'ClassAndVrmInstance',
 			'pvinverter:{}'.format(e.xpath('L2/DeviceInstance/text()')[0]), 's')
-		create_or_update_node(container, 'Enabled',
+		create_node(container, 'Enabled',
 			int(e.xpath('L2/ServiceType/text()') == ["pvinverter"]), 'i')
-		create_or_update_node(container, 'Position', e.xpath('L2/Position/text()')[0], 'i')
+		create_node(container, 'Position', e.xpath('L2/Position/text()')[0], 'i')
 		cn = e.xpath('L2/CustomName/text()')
 		if cn:
-			create_or_update_node(container, 'CustomName', cn[0], 's')
+			create_node(container, 'CustomName', cn[0], 's')
 
 	delete_from_tree(tree, "/Settings/CGwacs/Devices")
 
@@ -225,5 +262,6 @@ def migrate(localSettings, tree, version):
 	migrate_mqtt(localSettings, tree, version)
 	migrate_remotesupport2(localSettings, tree, version)
 	migrate_adc(localSettings, tree, version)
-	migrate_cgwacs_deviceinstance(localSettings, tree, version)
 	migrate_fronius_deviceinstance(localSettings, tree, version)
+	migrate_fixup_cgwacs(localSettings, tree, version)
+	migrate_cgwacs_deviceinstance(localSettings, tree, version)
