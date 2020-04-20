@@ -145,7 +145,7 @@ def elemFloatToInt(elem):
 	propFloatToInt(elem, "default")
 	try:
 		delete_from_tree(elem.getparent(), elem.tag + "2")
-		elem.text = str(int(float(elem.get(elem.text, "0.0"))))
+		elem.text = str(int(float(elem.text)))
 		elem.tag = elem.tag + "2"
 	except Exception as e:
 		print(e)
