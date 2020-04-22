@@ -166,6 +166,14 @@ def migrate_adc(localSettings, tree, version):
 	elemsFloatToInt(tree.xpath("/Settings/Tank/*/Standard"))
 	elemsFloatToInt(tree.xpath("/Settings/Temperature/*/TemperatureType"))
 
+
+# In v2.60~13 the devices were not prefixed. So rename the nodes so that
+# the kwh counters don't get lost. Skip the ones starting with a number,
+# since that is an invalid xml tag and causes all settings to be lost. They
+# cannot be present anyway, since v2.60~13 could not cope with them either.
+#
+# There is no need to keep this for a long time, since it only fixes a
+# candidate version.
 def migrate_fixup_cgwacs(localSettings, tree, version):
 	if version > 8:
 		return
@@ -175,6 +183,11 @@ def migrate_fixup_cgwacs(localSettings, tree, version):
 		return
 	ids = elem[0].split(",")
 	for ident in ids:
+		# tags cannot start with a number in xml. Hence they do not need a fixup,
+		# since all settings would have be restored to default in an earlier update.
+		if len(ident) == 0 or (ids[0] >= '0' and ids[0] <= '9'):
+			continue
+
 		dev = tree.xpath("/Settings/Devices/" + ident)
 		if len(dev) == 0:
 			continue
