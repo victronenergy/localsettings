@@ -175,7 +175,7 @@ def migrate_adc(localSettings, tree, version):
 # There is no need to keep this for a long time, since it only fixes a
 # candidate version.
 def migrate_fixup_cgwacs(localSettings, tree, version):
-	if version > 8:
+	if version >= 8:
 		return
 
 	elem = tree.xpath("/Settings/CGwacs/DeviceIds/text()")
@@ -199,7 +199,7 @@ def migrate_fixup_cgwacs(localSettings, tree, version):
 		rename_node(dev[0], "cgwacs_" + ident + "_S")
 
 def migrate_cgwacs_deviceinstance(localSettings, tree, version):
-	if version > 8:
+	if version >= 8:
 		return
 
 	devices = tree.getroot().find("Devices")
