@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Python
@@ -110,8 +110,8 @@ class LocalSettingsTest(unittest.TestCase):
 		testsets['int-re-add-other-min-max'] = {'group': 'g', 'setting': 'in', 'default': 201, 'value': 100, 'type': 'i', 'min': 10, 'max': 1000}
 		testsets['float-re-add-other-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 1.0, 'max': 1001.0}
 
-		for name, details in testsets.iteritems():
-			print "\n\n===Testing %s===\n" % name
+		for name, details in testsets.items():
+			print ("\n\n===Testing %s===\n" % name)
 			self.updateSettingsStamp()
 			setting = details['setting'] + '/' + rpc_name
 			self.assertEqual(0, self._add_setting(details['group'], setting, details['default'], details['type'], details['min'], details['max'], rpc_name=rpc_name))
@@ -173,8 +173,8 @@ class LocalSettingsTest(unittest.TestCase):
 			'start-setting-with-underscore-fails': {'group': 'g', 'setting': '_s', 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
 		}
 
-		for name, details in testsets.iteritems():
-			print "\n\n===Testing %s===\n" % name
+		for name, details in testsets.items():
+			print ("\n\n===Testing %s===\n" % name)
 			self.assertEqual(-2, self._add_setting(details['group'], details['setting'], details['value'], details['type'], details['min'], details['max']))
 
 	def test_re_adding_setting_with_different_type_fails(self):

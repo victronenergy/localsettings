@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python3 -u
 
 ## @package localsettings
 # Dbus-service for local settings.
@@ -28,7 +28,6 @@
 from dbus.mainloop.glib import DBusGMainLoop
 import dbus
 import dbus.service
-from gobject import timeout_add, source_remove, MainLoop
 from os import path, remove, rename, environ
 import sys
 import signal
@@ -41,6 +40,8 @@ import migrate
 import logging
 from enum import IntEnum, unique
 import argparse
+
+from gi.repository import GLib
 
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
@@ -56,7 +57,7 @@ InterfaceSettings = 'com.victronenergy.Settings'
 ## Supported types for convert xml-text to value.
 supportedTypes = {
 	'i': int,
-	's': unicode,
+	's': str,
 	'f': float,
 }
 
@@ -127,7 +128,7 @@ class SettingObject(dbus.service.Object):
 		self.storeAttribute(element, "max")
 		self.storeAttribute(element, "default")
 		self.storeAttribute(element, "silent")
-		element.text = unicode(self.value)
+		element.text = str(self.value)
 
 	def id(self):
 		return self._object_path.split("/")[-1]
@@ -154,7 +155,7 @@ class SettingObject(dbus.service.Object):
 	# Returns the value as string of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
-		return unicode(self.value)
+		return str(self.value)
 
 	## Dbus method SetValue
 	# Sets the value of a setting. When the type of the setting is a integer or float,
@@ -411,7 +412,7 @@ class GroupObject(dbus.service.Object):
 		min = convertToType(itemType, minimum)
 		max = convertToType(itemType, maximum)
 
-		if type(value) != str and type(value) != unicode:
+		if not isinstance(value, str):
 			if min == 0 and max == 0:
 				min = None
 				max = None
@@ -425,7 +426,7 @@ class GroupObject(dbus.service.Object):
 			min = None
 			max = None
 
-		if self._path() is "" and not relativePath.startswith("/Settings/"):
+		if self._path() == "" and not relativePath.startswith("/Settings/"):
 			return AddSettingError.NotInSettings, None
 
 		newSetting = False
@@ -480,7 +481,7 @@ class GroupObject(dbus.service.Object):
 			ret.append(result)
 
 			path = props.get("path")
-			if type(path) is not dbus.String:
+			if not isinstance(path, dbus.String):
 				if path:
 					result["path"] = path
 				result["error"] = AddSettingError.InvalidPath
@@ -489,11 +490,11 @@ class GroupObject(dbus.service.Object):
 			result["path"] = path
 			default = props.get("default")
 			typeName = ""
-			if type(default) is dbus.Int32:
+			if isinstance(default, dbus.Int32):
 				typeName = "i"
-			elif type(default) is dbus.Double:
+			elif isinstance(default, dbus.Double):
 				typeName = "f"
-			elif type(default) is dbus.String:
+			elif isinstance(default, dbus.String):
 				typeName = "s"
 			else:
 				result["error"] = AddSettingError.UnknownType
@@ -588,7 +589,7 @@ class DevicesGroup(GroupObject):
 	# Make sure classInstanceStr is updated to a free one.
 	# returns False if the string cannot be parsed.
 	def assureFreeInstance(self, classInstanceStr, settingObject):
-		if not type(classInstanceStr) is dbus.String and not type(classInstanceStr) is str and not type(classInstanceStr) is unicode:
+		if not isinstance(classInstanceStr, (dbus.String, str)):
 			return False, None
 		parts = classInstanceStr.split(":")
 		if len(parts) != 2:
@@ -599,9 +600,9 @@ class DevicesGroup(GroupObject):
 		except:
 			return False, None
 
-		taken = self.forAllSettings(lambda x: x.GetValue() if x is not settingObject and \
+		taken = list(self.forAllSettings(lambda x: x.GetValue() if x is not settingObject and \
 									x.id() == "ClassAndVrmInstance" and \
-									x.GetValue().startswith(devClass + ":") else None).values()
+									x.GetValue().startswith(devClass + ":") else None).values())
 
 		while True:
 			if classInstanceStr not in taken:
@@ -659,7 +660,7 @@ def writeToXmlFile(localSettings, settingsGroup):
 	localSettings.save(tree)
 
 def toBool(val):
-	if type(val) != str and type(val) != unicode:
+	if not isinstance(val, str):
 		return bool(val)
 
 	try:
@@ -693,7 +694,7 @@ def loadSettingsFile(name, settingsGroup):
 
 			defVal = convertToType(itemType, defVal)
 
-			if type(defVal) != str and type(defVal) != unicode:
+			if not isinstance(defVal, str):
 				minVal = convertToType(itemType, minVal)
 				maxVal = convertToType(itemType, maxVal)
 
@@ -811,7 +812,7 @@ class LocalSettings:
 	## The callback method for saving the settings-xml-file.
 	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
 	def saveSettingsCallback(self):
-		source_remove(self.timeoutSaveSettingsEventId)
+		GLib.source_remove(self.timeoutSaveSettingsEventId)
 		self.timeoutSaveSettingsEventId = None
 		writeToXmlFile(self, self.settingsGroup)
 
@@ -820,9 +821,9 @@ class LocalSettings:
 	# the settings-xml-file is saved.
 	def startTimeoutSaveSettings(self):
 		if self.timeoutSaveSettingsEventId is not None:
-			source_remove(self.timeoutSaveSettingsEventId)
+			GLib.source_remove(self.timeoutSaveSettingsEventId)
 			self.timeoutSaveSettingsEventId = None
-		self.timeoutSaveSettingsEventId = timeout_add(self.timeoutSaveSettingsTime * 1000,
+		self.timeoutSaveSettingsEventId = GLib.timeout_add(self.timeoutSaveSettingsTime * 1000,
 														self.saveSettingsCallback)
 
 def main(argv):
@@ -854,6 +855,6 @@ def main(argv):
 	# load system default settings, note need localSettings to be ready
 	loadSettingsDir(localSettings.sysSettingsDir, localSettings.settingsGroup)
 
-	MainLoop().run()
+	GLib.MainLoop().run()
 
 main(sys.argv[1:])
