@@ -269,6 +269,78 @@ def migrate_fronius_deviceinstance(localSettings, tree, version):
 			create_or_update_node(container, 'ClassAndVrmInstance',
 				'pvinverter:{}'.format(20 + idx), 's')
 
+def migrate_adc_settings(localSettings, tree, version):
+	if version > 8:
+		return
+
+	tank = []
+	temp = []
+
+	try:
+		f = open('/etc/venus/dbus-adc.conf', 'r')
+
+		for line in f:
+			w = line.split()
+
+			if len(w) < 2:
+				continue
+
+			if w[0] == 'tank':
+				tank.append(w[1])
+				continue
+
+			if w[0] == 'temp':
+				temp.append(w[1])
+				continue
+
+		f.close()
+	except:
+		return
+
+	tag_map = {
+		'Function2':           ['Function', 'i'],
+		'ResistanceWhenFull':  ['RawValueFull', 'f'],
+		'ResistanceWhenEmpty': ['RawValueEmpty', 'f'],
+	}
+
+	devices = tree.getroot().find("Devices")
+	if devices is None:
+		devices = etree.SubElement(tree.getroot(), 'Devices')
+
+	def getdev(pin):
+		name = 'adc_builtin0_%s' % pin
+		node = devices.find(name)
+		if node is None:
+			node = etree.SubElement(devices, name)
+		return node
+
+	def move_nodes(pins, paths):
+		for p in range(len(pins)):
+			num = p + 1
+			dev = getdev(pins[p])
+
+			nodes = []
+			for path in paths:
+				nodes += tree.xpath(path % num)
+
+			for n in nodes:
+				n.getparent().remove(n)
+				m = tag_map.get(n.tag)
+				if m:
+					n.tag = m[0]
+					n.set('type', m[1])
+				if dev.find(n.tag) is None:
+					dev.append(n)
+
+	move_nodes(tank, ['/Settings/AnalogInput/Resistive/_%s/*',
+					  '/Settings/Tank/_%s/*'])
+	move_nodes(temp, ['/Settings/AnalogInput/Temperature/_%s/*',
+					  '/Settings/Temperature/_%s/*'])
+
+	delete_from_tree(tree, '/Settings/AnalogInput')
+	delete_from_tree(tree, '/Settings/Tank')
+	delete_from_tree(tree, '/Settings/Temperature')
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -278,3 +350,4 @@ def migrate(localSettings, tree, version):
 	migrate_fronius_deviceinstance(localSettings, tree, version)
 	migrate_fixup_cgwacs(localSettings, tree, version)
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
+	migrate_adc_settings(localSettings, tree, version)
