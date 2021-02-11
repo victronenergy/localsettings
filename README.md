@@ -33,9 +33,18 @@ Notes:
 * Executing AddSetting for a path that already exists will not cause the existing
   value to be changed. In other words, it is safe to call AddSetting without first
   checking if that setting, aka path, is already there.
+* Vrm Device Instances: Localsettings can assign unique numbers per device class to a device. The single parameter for them is a tuple: `class:instance`, `battery:1` for example. When adding the special setting, /Settings/Devices/UniqueDeviceNumber/ClassAndVrmInstance, it will be set to an unique one. So if the default is set to battery:1 and that one already existed, it will get the next free unique number, and get set to `battery:2` for example.
+
+
 
 #### AddSettings
-Like above command, but uses a single array of dictionaries for parameters.
+This dbus method call allows to add multiple settings at once which
+saves some roundtrips if there are many settings like the gui has.
+
+Unlike the AddSetting, it doesn't make a distinction between groups
+and setting and only accepts a single path. The type is based on the
+(mandatory) default value and doesn't need to be passed. min, max and silent
+are optional.
 
 Required parameters:
 - "path" the (relative) path for the setting. /Settings/Display/Brightness when called \
@@ -47,6 +56,33 @@ Optional parameters:
 - "min"
 - "max"
 - "silent" don't log changes
+
+For each entry, at least error and path are returned (unless it
+wasn't passed). The actual value is returned when no error occured.
+
+Commandline examples:
+
+```
+dbus com.victronenergy.settings / AddSettings \
+'%[{"path": "/Settings/Test", "default": 5}, {"path": "/Settings/Float", "default": 5.0}]'
+
+[{'error': 0, 'path': '/Settings/Test', 'value': 1},
+ {'error': 0, 'path': '/Settings/Float', 'value': 5.0}]
+
+or on /Settings:
+
+dbus com.victronenergy.settings /Settings AddSettings \
+'%[{"path": "Test", "default": 5}, {"path": "Float", "default": 5.0}]'
+
+[{'error': 0, 'path': 'Test', 'value': 1},
+ {'error': 0, 'path': 'Float', 'value': 5.0}]
+
+or for testing:
+
+dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "a/ClassAndVrmInstance", "default": "battery:1"}, {"path": "b/ClassAndVrmInstance", "default": "battery:1"}]'
+[{'error': 0, 'path': 'a/ClassAndVrmInstance', 'value': 'battery:1'},
+ {'error': 0, 'path': 'b/ClassAndVrmInstance', 'value': 'battery:2'}
+```
 
 #### RemoveSettings
 Removes all settings for a given array with paths
@@ -75,13 +111,6 @@ See source code
 
 #### SetDefault
 See source code
-
-#### Vrm Device Instances
-Localsettings can assign unique numbers per device class to a device. The single
-parameter for them is class:instance, battery:1 for example. When adding the
-special setting, /Settings/Devices/UniqueDeviceNumber/ClassAndVrmInstance
-it will be set to an unique one. So if the default is set to battery:1 and
-that one already existed, it might get set to battery:2 for example.
 
 ## Usage examples and libraries
 ### Command line
