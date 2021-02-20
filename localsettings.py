@@ -773,6 +773,13 @@ class LocalSettings:
 		parseXmlFile(self.fileSettings, self.rootGroup)
 
 	def save(self, tree):
+
+		def recursive_sort(root):
+			for t in root:
+				recursive_sort(t)
+			root[:] = sorted(root, key=lambda c: c.tag)
+		recursive_sort(tree.getroot())
+
 		with open(self.newFileSettings, 'wb') as fp:
 			tree.write(fp, encoding = settingsEncoding, pretty_print = True, xml_declaration = True)
 			fp.flush()
