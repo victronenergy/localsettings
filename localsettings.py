@@ -97,6 +97,8 @@ class SettingObject(dbus.service.Object):
 		self.type = None
 
 	def remove(self):
+		change = {'Value': dbus.Array([], signature=dbus.Signature('i'), variant_level=1), 'Text': ''}
+		self.PropertiesChanged(change)
 		self.remove_from_connection()
 		if self.group:
 			self.group._settings.pop(self.id())
