@@ -61,6 +61,9 @@ supportedTypes = {
 	'f': float,
 }
 
+DBUS_OK = dbus.types.Int32(0)
+DBUS_ERR = dbus.types.Int32(-1)
+
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
 settingsVersion = '9'
@@ -72,14 +75,15 @@ localSettings = None
 
 @unique
 class AddSettingError(IntEnum):
-	UnderscorePrefix = -2
-	UnknownType = -3
-	InvalidPath = -4
-	TypeDiffer = -5
-	InvalidDefault = -6
-	DefaultOutOfRange = -7
-	IsGroup = -8
-	NotInSettings = -9
+	NoError = dbus.types.Int32(0)
+	UnderscorePrefix = dbus.types.Int32(-2)
+	UnknownType = dbus.types.Int32(-3)
+	InvalidPath = dbus.types.Int32(-4)
+	TypeDiffer = dbus.types.Int32(-5)
+	InvalidDefault = dbus.types.Int32(-6)
+	DefaultOutOfRange = dbus.types.Int32(-7)
+	IsGroup = dbus.types.Int32(-8)
+	NotInSettings = dbus.types.Int32(-9)
 
 class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
@@ -149,13 +153,13 @@ class SettingObject(dbus.service.Object):
 	# Returns the value of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetValue(self):
-		return self.value
+		return dbus_wrap(self.type, self.value)
 
 	## Dbus method GetText
 	# Returns the value as string of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 's')
 	def GetText(self):
-		return str(self.value)
+		return dbus.types.String(self.value)
 
 	## Dbus method SetValue
 	# Sets the value of a setting. When the type of the setting is a integer or float,
@@ -166,34 +170,34 @@ class SettingObject(dbus.service.Object):
 	def SetValue(self, value):
 		v = convertToType(self.type, value)
 		if v is None:
-			return -1
+			return DBUS_ERR
 
 		if self.min and v < self.min:
-			return -1
+			return DBUS_ERR
 		if self.max and v > self.max:
-			return -1
+			return DBUS_ERR
 
 		if v != self.value:
 			if not self._setValue(v):
-				return -1
+				return DBUS_ERR
 
-		return 0
+		return DBUS_OK
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMin(self):
 		if self.min is None:
-			return 0
-		return self.min
+			return dbus.types.Int32(0)
+		return dbus_wrap(self.type, self.min)
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetMax(self):
 		if self.max is None:
-			return 0
-		return self.max
+			return dbus.types.Int32(0)
+		return dbus_wrap(self.type, self.max)
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'b')
 	def GetSilent(self):
-		return self.silent
+		return dbus_wrap(self.type, self.silent)
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
@@ -222,15 +226,15 @@ class SettingObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetDefault(self):
 		if self.default is None:
-			return -1
-		return self.default
+			return DBUS_ERR
+		return dbus_wrap(self.type, self.default)
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
 		if self.default is None:
-			return -1
+			return DBUS_ERR
 		self.SetValue(self.default)
-		return 0
+		return DBUS_OK
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
@@ -458,7 +462,7 @@ class GroupObject(dbus.service.Object):
 
 			changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
 			if not changed:
-				return 0, settingObject
+				return AddSettingError.NoError, settingObject
 
 			# There are changes, save them while keeping the current value.
 			value = settingObject.value
@@ -470,7 +474,7 @@ class GroupObject(dbus.service.Object):
 		logging.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
 						 (self._path() + "/" + relativePath, defaultValue, itemType, minimum, maximum, silent))
 
-		return 0, settingObject
+		return AddSettingError.NoError, settingObject
 
 	@dbus.service.method(InterfaceSettings, in_signature = 'aa{sv}', out_signature = 'aa{sv}')
 	def AddSettings(self, definition):
@@ -490,7 +494,7 @@ class GroupObject(dbus.service.Object):
 			result["path"] = path
 			default = props.get("default")
 			typeName = ""
-			if isinstance(default, dbus.Int32):
+			if isinstance(default, (dbus.Int32, dbus.Int64)):
 				typeName = "i"
 			elif isinstance(default, dbus.Double):
 				typeName = "f"
@@ -550,7 +554,7 @@ class GroupObject(dbus.service.Object):
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
 		self.forAllSettings(lambda x: x.SetDefault())
-		return 0
+		return DBUS_OK
 
 # Special settings with contains class + instance. It is special since it
 # disallows duplicate values and will be set to the next free one instead
@@ -563,7 +567,7 @@ class ClassAndVrmInstance(SettingObject):
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
 
 	def SetDefault(self):
-		return -1
+		return DBUS_ERR
 
 ## Unique VRM instances
 # Just a normal group, except for ClassAndInstance which is a special setting
@@ -617,6 +621,23 @@ def convertToType(type, value):
 	try:
 		return supportedTypes[type](value)
 	except:
+		return None
+
+def _int(x):
+	""" 64-bit aware conversion. """
+	x = int(x)
+	return dbus.types.Int64(x) if x > 0x7FFFFFFF else dbus.types.Int32(x)
+
+def dbus_wrap(typ, value):
+	if value is None:
+		return None
+	try:
+		return {
+			'i': _int,
+			's': dbus.types.String,
+			'f': dbus.types.Double
+		}[typ](value)
+	except KeyError:
 		return None
 
 def parseXmlFile(file, items):
