@@ -197,7 +197,7 @@ class SettingObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'b')
 	def GetSilent(self):
-		return dbus_wrap(self.type, self.silent)
+		return dbus.types.Int32(self.silent)
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
