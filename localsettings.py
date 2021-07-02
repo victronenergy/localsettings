@@ -197,7 +197,7 @@ class SettingObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'b')
 	def GetSilent(self):
-		return dbus.types.Int32(self.silent)
+		return dbus.types.Boolean(self.silent)
 
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
@@ -238,7 +238,8 @@ class SettingObject(dbus.service.Object):
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
-		return (self.GetDefault(), self.GetMin(), self.GetMax(), self.GetSilent())
+		return (self.GetDefault(), self.GetMin(), self.GetMax(),
+			dbus.types.Int32(self.silent))
 
 class GroupObject(dbus.service.Object):
 	def __init__(self, busname, path, parent, removable = True):
