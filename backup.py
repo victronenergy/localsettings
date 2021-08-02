@@ -6,11 +6,43 @@ import logging
 from glob import glob
 from argparse import ArgumentParser
 import tarfile
+import struct
+from time import sleep
 from io import BytesIO
 from lxml import etree
 
 # Files to backup relative to root (/data)
 BACKUP = ('conf/settings.xml', )
+
+def svstat(service):
+	""" Simple python implementation of svstat, because the
+	    daemontools version doesn't return useful exit statuses
+		and this is less insane than parsing output. """
+	f = os.path.join(service, 'supervise', 'status')
+	try:
+		fd = os.open(f, os.O_RDONLY | os.O_NONBLOCK)
+	except OSError:
+		return False
+	else:
+		status = os.read(fd, 18)
+		if len(status) == 18:
+			pid = struct.unpack('<i', status[12:16])[0]
+			return pid > 0
+		return False
+
+def svc(service, ops):
+	""" Simple python implementation of svc, because it is easy and we already
+	    did svstat. """
+	f = os.path.join(service, 'supervise', 'control')
+	fd = os.open(f, os.O_WRONLY | os.O_NONBLOCK)
+	try:
+		os.write(fd, ops)
+	finally:
+		os.close(fd)
+
+def reboot():
+	""" Reboot by killing init. """
+	os.kill(1, 2) # SIGINT
 
 def setting_files(members, files):
 	for info in members:
@@ -28,11 +60,28 @@ def restore(root, media, files):
 	for m in media:
 		target = os.path.join(m, 'venus-cfg.tar')
 		if os.path.exists(target):
-			# TODO stop localsettings while doing this. Then reboot as some processes
-			# don't survive a localsettings outage.
+			# Stop localsettings while doing this, otherwise it will just
+			# overwrite the file again on shutdown later.
+			svc("/service/localsettings", b"d")
+
+			# Wait for it to stop
+			for _ in range(3):
+				if not svstat("/service/localsettings"):
+					break # range(3)
+				sleep(1)
+			else:
+				logging.error("localsettings failed to stop")
+				reboot()
+				break # m in media
+
+			# Restore the settings
 			with tarfile.open(target, 'r') as tar:
 				tar.extractall(path=root, members=setting_files(tar, files))
-			break
+
+			# Then reboot as some processes don't survive a localsettings
+			# outage.
+			reboot()
+			break # m in media
 
 def delete_from_tree(tree, path):
 	obj = tree.xpath(path)
