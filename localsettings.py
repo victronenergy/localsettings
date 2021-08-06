@@ -758,12 +758,14 @@ class LocalSettings:
 	dbusName = 'com.victronenergy.settings'
 	fileSettings = 'settings.xml'
 	newFileExtension = '.new'
+	importFileExtension = '.import'
 	sysSettingsDir = '/etc/venus/settings.d'
 
 	def __init__(self, pathSettings, timeoutSaveSettingsTime):
 		# set the settings path
 		self.fileSettings = pathSettings + self.fileSettings
 		self.newFileSettings = self.fileSettings + self.newFileExtension
+		self.importFileSettings = self.fileSettings + self.importFileExtension
 		self.timeoutSaveSettingsTime = timeoutSaveSettingsTime
 		self.timeoutSaveSettingsEventId = None
 		self.rootGroup = None
@@ -779,6 +781,23 @@ class LocalSettings:
 		if not path.isdir(pathSettings):
 			print('Error path %s does not exist!' % pathSettings)
 			sys.exit(errno.ENOENT)
+
+		if path.isfile(self.importFileSettings):
+			# Validate and migrate import file
+			try:
+				tree = etree.parse(self.importFileSettings)
+				if tree.getroot().get("unique-id") != self.serial:
+					migrate.cleanup_settings(tree)
+
+				logging.info('Import file %s validated' % self.importFileSettings)
+				self.save(tree)
+			except Exception as e:
+				print(e)
+				logging.error('Import file %s invalid' % self.importFileSettings)
+
+			# Always remove import file.
+			remove(self.importFileSettings)
+			logging.info('%s removed' % self.importFileSettings)
 
 		if path.isfile(self.fileSettings):
 			# Try to validate the settings file.

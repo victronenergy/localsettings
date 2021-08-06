@@ -356,3 +356,12 @@ def migrate(localSettings, tree, version):
 	migrate_fixup_cgwacs(localSettings, tree, version)
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
 	migrate_adc_settings(localSettings, tree, version)
+
+def cleanup_settings(tree):
+	""" Clean up device-specific settings. Used when restoring settings
+	    from another GX-device. """
+	delete_from_tree(tree, "/Settings/Devices")
+	delete_from_tree(tree, "/Settings/CanBms")
+	delete_from_tree(tree, "/Settings/Fronius/InverterIds")
+	delete_from_tree(tree, "/Settings/Fronius/Inverters")
+	delete_from_tree(tree, "/Settings/Victron/Products")
