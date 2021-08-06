@@ -40,6 +40,7 @@ import migrate
 import logging
 from enum import IntEnum, unique
 import argparse
+from subprocess import check_output, CalledProcessError
 
 from gi.repository import GLib
 
@@ -66,7 +67,8 @@ DBUS_ERR = dbus.types.Int32(-1)
 
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
-settingsVersion = '9'
+uniqueIdTag = 'unique-id'
+settingsVersion = '10'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
 
@@ -674,9 +676,10 @@ def parseXmlEntry(element, group):
 			for child in element:
 				parseXmlEntry(child, subgroup)
 
-def writeToXmlFile(localSettings, settingsGroup):
+def writeToXmlFile(localSettings, settingsGroup, serial):
 	root = etree.Element("Settings")
 	root.set(settingsTag, settingsVersion)
+	root.set(uniqueIdTag, serial)
 	tree = etree.ElementTree(root)
 	settingsGroup.toXml(root)
 	localSettings.save(tree)
@@ -743,6 +746,13 @@ def loadSettingsDir(path, dictionary):
 		except Exception as ex:
 			logging.error('error loading %s: %s' % (filename, str(ex)))
 
+def getVrmUniqueId():
+	try:
+		return check_output("/sbin/get-unique-id").decode("ascii").strip()
+	except (CalledProcessError, OSError, UnicodeDecodeError):
+		pass
+	return ''
+
 ## The main function.
 class LocalSettings:
 	dbusName = 'com.victronenergy.settings'
@@ -758,6 +768,10 @@ class LocalSettings:
 		self.timeoutSaveSettingsEventId = None
 		self.rootGroup = None
 		self.settingsGroup = None
+
+		# VRM portal id is stored in settings file so we can detect
+		# when settings is transferred to another device.
+		self.serial = getVrmUniqueId()
 
 		# Print the logscript version
 		logging.info('Localsettings version is: 0x%04x' % version)
@@ -784,6 +798,7 @@ class LocalSettings:
 				if loadedVersionTxt != settingsVersion:
 					print("Updating version to " + settingsVersion)
 					root.set(settingsTag, settingsVersion)
+					root.set(uniqueIdTag, self.serial)
 					self.save(tree)
 
 			except Exception as e:
@@ -797,6 +812,7 @@ class LocalSettings:
 			logging.warning('Settings file %s not found' % self.fileSettings)
 			root = etree.Element(settingsRootName)
 			root.set(settingsTag, settingsVersion)
+			root.set(uniqueIdTag, self.serial)
 			tree = etree.ElementTree(root)
 			self.save(tree)
 			logging.warning('Created settings file %s' % self.fileSettings)
@@ -836,7 +852,7 @@ class LocalSettings:
 	def saveSettingsCallback(self):
 		GLib.source_remove(self.timeoutSaveSettingsEventId)
 		self.timeoutSaveSettingsEventId = None
-		writeToXmlFile(self, self.settingsGroup)
+		writeToXmlFile(self, self.settingsGroup, self.serial)
 
 	## Method for starting the time-out for saving to the settings-xml-file.
 	# (Re)Starts the time-out. When after x time no settings are changed,
