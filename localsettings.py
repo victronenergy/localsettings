@@ -536,9 +536,9 @@ class GroupObject(dbus.service.Object):
 
 		return ret
 
-	def forAllSettings(self, function):
+	def forAllSettings(self, function, type = 'v'):
 		prefixLength = len(self._path() + '/')
-		ret = dbus.Dictionary(signature = dbus.Signature('sv'), variant_level=1)
+		ret = dbus.Dictionary(signature = dbus.Signature('s' + type), variant_level=1)
 		for setting in self.getSettingObjects():
 			relPath = setting._object_path[prefixLength:]
 			value = function(setting)
@@ -550,9 +550,9 @@ class GroupObject(dbus.service.Object):
 	def GetValue(self):
 		return self.forAllSettings(lambda x: x.GetValue())
 
-	@dbus.service.method(InterfaceBusItem, out_signature = 'a{ss}')
+	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
 	def GetText(self):
-		return self.forAllSettings(lambda x: x.GetText())
+		return self.forAllSettings(lambda x: x.GetText(), 's')
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
 	def SetDefault(self):
