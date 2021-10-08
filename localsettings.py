@@ -201,6 +201,18 @@ class SettingObject(dbus.service.Object):
 	def GetSilent(self):
 		return dbus.types.Boolean(self.silent)
 
+	def getProperties(self):
+		ret = dbus.Dictionary(signature = dbus.Signature('sv'), variant_level=0)
+		ret['Value'] = dbus_wrap(self.type, self.value)
+		ret['Text'] = dbus.types.String(self.value)
+		if self.max is not None:
+			ret['Max'] = dbus_wrap(self.type, self.max)
+		if self.min is not None:
+			ret['Min'] = dbus_wrap(self.type, self.min)
+		if self.default is not None:
+			ret['Default'] = dbus_wrap(self.type, self.default)
+		return ret
+
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
 	def _setValue(self, value, printLog=True, sendAttributes=False):
@@ -559,6 +571,17 @@ class GroupObject(dbus.service.Object):
 		self.forAllSettings(lambda x: x.SetDefault())
 		return DBUS_OK
 
+class RootObject(GroupObject):
+	def __init__(self, busname, path, parent, removable = True):
+		super(RootObject, self).__init__(busname, path, parent, removable)
+
+	@dbus.service.method(InterfaceBusItem, out_signature = 'a{sa{sv}}')
+	def GetItems(self):
+		return dbus.Dictionary({
+			setting._object_path: setting.getProperties()
+			for setting in self.getSettingObjects()
+		}, signature = dbus.Signature('sa{sv}'), variant_level=0)
+
 # Special settings with contains class + instance. It is special since it
 # disallows duplicate values and will be set to the next free one instead
 # when attempting to set an already taken combination.
@@ -840,7 +863,7 @@ class LocalSettings:
 		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 		busName = dbus.service.BusName(self.dbusName, bus)
 
-		self.rootGroup = GroupObject(busName, "/", None, removable = False)
+		self.rootGroup = RootObject(busName, "/", None, removable = False)
 		self.settingsGroup = self.rootGroup.createGroups("/Settings")
 		self.settingsGroup._removable = False
 		devices = DevicesGroup(busName, "/Settings/Devices", self.settingsGroup, removable = False)
