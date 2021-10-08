@@ -201,6 +201,18 @@ class SettingObject(dbus.service.Object):
 	def GetSilent(self):
 		return dbus.types.Boolean(self.silent)
 
+	def getProperties(self):
+		ret = dbus.Dictionary(signature = dbus.Signature('sv'), variant_level=0)
+		ret['Value'] = dbus_wrap(self.type, self.value)
+		ret['Text'] = dbus.types.String(self.value)
+		if self.max is not None:
+			ret['Max'] = dbus_wrap(self.type, self.max)
+		if self.min is not None:
+			ret['Min'] = dbus_wrap(self.type, self.min)
+		if self.default is not None:
+			ret['Default'] = dbus_wrap(self.type, self.default)
+		return ret
+
 	## Sets the value and starts the time-out for saving to the settings-xml-file.
 	# @param value The new value for the setting.
 	def _setValue(self, value, printLog=True, sendAttributes=False):
@@ -216,6 +228,7 @@ class SettingObject(dbus.service.Object):
 		if sendAttributes:
 			change.update({'Min': self.GetMin(), 'Max': self.GetMax(), 'Default': self.GetDefault()})
 		self.PropertiesChanged(change)
+		localSettings.itemChanged(self._object_path, change)
 
 		return True
 
@@ -536,9 +549,9 @@ class GroupObject(dbus.service.Object):
 
 		return ret
 
-	def forAllSettings(self, function, type = 'v'):
+	def forAllSettings(self, function, type = 'v', level = 1):
 		prefixLength = len(self._path() + '/')
-		ret = dbus.Dictionary(signature = dbus.Signature('s' + type), variant_level=1)
+		ret = dbus.Dictionary(signature = dbus.Signature('s' + type), variant_level=level)
 		for setting in self.getSettingObjects():
 			relPath = setting._object_path[prefixLength:]
 			value = function(setting)
@@ -558,6 +571,33 @@ class GroupObject(dbus.service.Object):
 	def SetDefault(self):
 		self.forAllSettings(lambda x: x.SetDefault())
 		return DBUS_OK
+
+class RootObject(GroupObject):
+	def __init__(self, busname, path, parent, removable = True):
+		GroupObject.__init__(self, busname, path, parent, removable)
+		self.itemChanges = dbus.Dictionary(signature = dbus.Signature('sa{sv}'), variant_level=0)
+		self.sendItemsChangedEventId = None
+
+	@dbus.service.method(InterfaceBusItem, out_signature = 'a{sa{sv}}')
+	def GetItems(self):
+		return self.forAllSettings(lambda x: x.getProperties(), 'a{sv}', 0)
+
+	@dbus.service.signal(InterfaceBusItem, signature = 'a{sa{sv}}')
+	def ItemsChanged(self, changes):
+		logging.debug('signal ItemsChanged')
+
+	def _sendItemsChanged(self):
+		self.ItemsChanged(self.itemChanges)
+		self.itemChanges.clear()
+		self.sendItemsChangedEventId = None
+		return False
+
+	def itemChanged(self, path, changes):
+		if path not in self.itemChanges:
+			self.itemChanges[path] = dbus.Dictionary(signature = dbus.Signature('sv'), variant_level=0)
+		self.itemChanges[path].update(changes)
+		if self.sendItemsChangedEventId is None:
+			self.sendItemsChangedEventId = GLib.idle_add(self._sendItemsChanged)
 
 # Special settings with contains class + instance. It is special since it
 # disallows duplicate values and will be set to the next free one instead
@@ -840,7 +880,7 @@ class LocalSettings:
 		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
 		busName = dbus.service.BusName(self.dbusName, bus)
 
-		self.rootGroup = GroupObject(busName, "/", None, removable = False)
+		self.rootGroup = RootObject(busName, "/", None, removable = False)
 		self.settingsGroup = self.rootGroup.createGroups("/Settings")
 		self.settingsGroup._removable = False
 		devices = DevicesGroup(busName, "/Settings/Devices", self.settingsGroup, removable = False)
@@ -882,6 +922,9 @@ class LocalSettings:
 			self.timeoutSaveSettingsEventId = None
 		self.timeoutSaveSettingsEventId = GLib.timeout_add(self.timeoutSaveSettingsTime * 1000,
 														self.saveSettingsCallback)
+
+	def itemChanged(self, path, changes):
+		self.rootGroup.itemChanged(path, changes)
 
 def main(argv):
 	global localSettings
