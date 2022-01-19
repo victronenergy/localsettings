@@ -13,7 +13,8 @@ com.victronenergy.settings as well. Some reasons for doing it this way are:
 
 ## D-Bus API
 #### AddSetting
-This function can be called on any path, which is not a setting.
+This method can be called on any path that is not a setting. For example
+on `com.victronenergy.settings /`.
 
 Parameters:
 - Groupname
@@ -33,9 +34,38 @@ Notes:
 * Executing AddSetting for a path that already exists will not cause the existing
   value to be changed. In other words, it is safe to call AddSetting without first
   checking if that setting, aka path, is already there.
-* Vrm Device Instances: Localsettings can assign unique numbers per device class to a device. The single parameter for them is a tuple: `class:instance`, `battery:1` for example. When adding the special setting, /Settings/Devices/UniqueDeviceNumber/ClassAndVrmInstance, it will be set to an unique one. So if the default is set to battery:1 and that one already existed, it will get the next free unique number, and get set to `battery:2` for example.
 
+##### Using AddSetting to allocate a Vrm Device Instance 
 
+Localsettings can assign a unique number (instance) per device class to
+a device. The path for that is `/Settings/Devices/[UniqueID]/ClassAndVrmInstance`.
+
+The device class for which to reserve an instance, as well as the prefered instance,
+is combined into a string with a colon as seperator, for example `battery:1`. This
+string is passed as the default value when calling `AddSetting`.
+
+The instance will automatically be set to an unique number (for the given class). So
+if the supplied parameter was `battery:1`, and instance 1 already existed for the
+`battery` class, then it will get the next free unique number, and get set to `battery:2`,
+if 2 is free.
+
+The `UniqueID` in the path can, for example, be the serial number of said device. It is also
+good practice to include the driver name in the `UniqueID` for easier identification,
+for example, a Carlo Gavazzi grid meter will have its serial number prefixed with `cgwacs_`.
+
+If there already was a record for that combination of class and UniqueID, then
+it won't reserve a new instance number, and instead do nothing.
+
+To get the (then reserved) instance, add a GetValue call after the AddSettings call.
+
+An example using the command-line dbus tool is as follows:
+
+```
+dbus -y com.victronenergy.settings /Settings/Devices AddSetting MyUnique1 ClassAndVrmInstance battery:1 s "" ""
+dbus -y com.victronenergy.settings /Settings/Devices/MyUnique1/ClassAndVrmInstance GetValue
+```
+
+More info about this also in the [dbus-api doc](https://github.com/victronenergy/venus/wiki/dbus-api#vrm-device-instances).
 
 #### AddSettings
 This dbus method call allows to add multiple settings at once which
@@ -68,22 +98,32 @@ dbus com.victronenergy.settings / AddSettings \
 
 [{'error': 0, 'path': '/Settings/Test', 'value': 1},
  {'error': 0, 'path': '/Settings/Float', 'value': 5.0}]
+```
 
 or on /Settings:
 
+```
 dbus com.victronenergy.settings /Settings AddSettings \
 '%[{"path": "Test", "default": 5}, {"path": "Float", "default": 5.0}]'
 
 [{'error': 0, 'path': 'Test', 'value': 1},
  {'error': 0, 'path': 'Float', 'value': 5.0}]
+```
 
-or for testing:
+##### Using AddSettings to allocate Vrm Device Instances
 
+Allocating VRM device instances can be done by using the AddSettings call. This
+has the additional advantage that the allocated instance number is returned
+to the application immediately, making an additional GetValue call unnecessary.
+
+```
 dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "a/ClassAndVrmInstance", "default": "battery:1"}, {"path": "b/ClassAndVrmInstance", "default": "battery:1"}]'
 [{'error': 0, 'path': 'a/ClassAndVrmInstance', 'value': 'battery:1'},
- {'error': 0, 'path': 'b/ClassAndVrmInstance', 'value': 'battery:2'}
+ {'error': 0, 'path': 'b/ClassAndVrmInstance', 'value': 'battery:2'}]
+```
 
 In case the unique identifier changes, the following can be used to keep the original instance:
+```
 dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "c/ClassAndVrmInstance", "default": "battery:2", "replaces": ["a/ClassAndVrmInstance"]}]'
 [{'error': 0, 'path': 'c/ClassAndVrmInstance', 'value': 'battery:1'}]
 ```
