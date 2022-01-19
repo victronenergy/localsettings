@@ -13,7 +13,8 @@ com.victronenergy.settings as well. Some reasons for doing it this way are:
 
 ## D-Bus API
 #### AddSetting
-This function can be called on any path, which is not a setting.
+This method can be called on any path, which is not a setting. For example
+on `com.victronenergy.settings /`.
 
 Parameters:
 - Groupname
@@ -33,9 +34,28 @@ Notes:
 * Executing AddSetting for a path that already exists will not cause the existing
   value to be changed. In other words, it is safe to call AddSetting without first
   checking if that setting, aka path, is already there.
-* Vrm Device Instances: Localsettings can assign unique numbers per device class to a device. The single parameter for them is a tuple: `class:instance`, `battery:1` for example. When adding the special setting, /Settings/Devices/UniqueDeviceNumber/ClassAndVrmInstance, it will be set to an unique one. So if the default is set to battery:1 and that one already existed, it will get the next free unique number, and get set to `battery:2` for example.
 
+Vrm Device Instances: 
 
+Localsettings can assign a unique number (instance) per device class to
+a device. The path for that is `/Settings/Devices/[UniqueID]/ClassAndVrmInstance`.
+
+The device class for which to reserve an instance, as well as the prefered instance,
+are passed, combined into a tuple, as the default value. For example `("battery", 1)`.
+
+The instance will automatically be set to an unique number (for the given class). So
+if the supplied parameter was `("battery", 1)`, and instance 1 already existed for the
+`battery` class, then it will get the next free unique number, and get set to `("battery":2)`
+for example. Or `("battery", 3)` if 2 was already taken.
+
+The `UniqueID` in the path can, for example, be the serial number of said device.
+
+Clearly, if there already was a record for that combination of class and UniqueID, then
+it won't reserve a new instamce number, and instead do nothing.
+
+To get the (then reserved) instance, add a GetValue call after the AddSettings call.
+
+More info about this also in the [dbus-api doc](https://github.com/victronenergy/venus/wiki/dbus-api#vrm-device-instances).
 
 #### AddSettings
 This dbus method call allows to add multiple settings at once which
