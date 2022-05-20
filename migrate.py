@@ -346,6 +346,17 @@ def migrate_adc_settings(localSettings, tree, version):
 	delete_from_tree(tree, '/Settings/Tank')
 	delete_from_tree(tree, '/Settings/Temperature')
 
+def migrate_fischerpanda_autostart(localSettings, tree, version):
+	if version >= 11:
+		return
+	autostart = int(tree.xpath("/Settings/Services/FischerPandaAutoStartStop/text()") == ["1"])
+	try:
+		tree.xpath('/Settings/FischerPanda0/AutoStartEnabled')[0].text = str(autostart)
+	except (IndexError, AttributeError):
+		pass
+	else:
+		delete_from_tree(tree, "/Settings/Services/FischerPandaAutoStartStop")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -356,6 +367,7 @@ def migrate(localSettings, tree, version):
 	migrate_fixup_cgwacs(localSettings, tree, version)
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
 	migrate_adc_settings(localSettings, tree, version)
+	migrate_fischerpanda_autostart(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
