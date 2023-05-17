@@ -587,9 +587,11 @@ class RootObject(GroupObject):
 # when attempting to set an already taken combination.
 class ClassAndVrmInstance(SettingObject):
 	def _setValue(self, value, printLog=True, sendAttributes=False):
-		valid, value = self.group._parent.assureFreeInstance(value, self)
+		valid, devClass, instance = parseClassInstanceString(value)
 		if not valid:
 			return False
+
+		value = self.group._parent.assureFreeInstance(devClass, instance, self)
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
 
 	def SetDefault(self):
@@ -618,29 +620,29 @@ class DevicesGroup(GroupObject):
 
 	# Make sure classInstanceStr is updated to a free one.
 	# returns False if the string cannot be parsed.
-	def assureFreeInstance(self, classInstanceStr, settingObject):
-		if not isinstance(classInstanceStr, (dbus.String, str)):
-			return False, None
-		parts = classInstanceStr.split(":")
-		if len(parts) != 2:
-			return False, None
-		devClass = parts[0]
-		try:
-			instance = int(parts[1])
-		except:
-			return False, None
-
+	def assureFreeInstance(self, devClass, instance, settingObject):
 		taken = list(self.forAllSettings(lambda x: x.GetValue() if x is not settingObject and \
 									x.id() == "ClassAndVrmInstance" and \
 									x.GetValue().startswith(devClass + ":") else None).values())
 
 		while True:
-			if classInstanceStr not in taken:
-				return True, classInstanceStr
-			instance += 1
 			classInstanceStr = devClass + ":" + str(instance)
+			if classInstanceStr not in taken:
+				return classInstanceStr
+			instance += 1
 
 # Helpers
+def parseClassInstanceString(value):
+	if not isinstance(value, (dbus.String, str)):
+		return False, "", 0
+	parts = value.split(":")
+	if len(parts) != 2:
+		return False, "", 0
+	try:
+		return True, parts[0], int(parts[1])
+	except:
+		return False, "", 0
+
 def convertToType(type, value):
 	if value is None:
 		return None
