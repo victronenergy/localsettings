@@ -405,6 +405,19 @@ def migrate_analog_sensors_classes(localSettings, tree, version):
 
 		change_class(dev.find('ClassAndVrmInstance'), newClass)
 
+def migrate_vedirect_classes(localsettings, tree, version):
+	if version >= 13:
+		return
+
+	classAndVrmInstances = tree.xpath('/Settings/Devices/*/ClassAndVrmInstance')
+	for e in classAndVrmInstances:
+		try:
+			if e.text.startswith('com.victronenergy.'):
+				newClass = e.text.split(":")[0][len('com.victronenergy.'):]
+				change_class(e, newClass)
+		except:
+			pass
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -418,6 +431,7 @@ def migrate(localSettings, tree, version):
 	migrate_fischerpanda_autostart(localSettings, tree, version)
 	migrate_fischerpanda_to_generic_genset(localSettings, tree, version)
 	migrate_analog_sensors_classes(localSettings, tree, version)
+	migrate_vedirect_classes(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
