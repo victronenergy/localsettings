@@ -357,6 +357,17 @@ def migrate_fischerpanda_autostart(localSettings, tree, version):
 	else:
 		delete_from_tree(tree, "/Settings/Services/FischerPandaAutoStartStop")
 
+def migrate_classAndVrmInstances(localsettings, tree, version):
+	if version >= 12:
+		return
+	try:
+		classAndVrmInstances = tree.xpath('/Settings/Devices/*/ClassAndVrmInstance')
+		for e in classAndVrmInstances:
+			if e.text.startswith('com.victronenergy.'):
+				e.text = e.text[len('com.victronenergy.'):]
+	except:
+		pass
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -368,6 +379,7 @@ def migrate(localSettings, tree, version):
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
 	migrate_adc_settings(localSettings, tree, version)
 	migrate_fischerpanda_autostart(localSettings, tree, version)
+	migrate_classAndVrmInstances(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
