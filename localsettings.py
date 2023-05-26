@@ -151,6 +151,9 @@ class SettingObject(dbus.service.Object):
 
 		return ret
 
+	def _updateAttributes(self, default, type, min, max, silent):
+		return AddSettingError.NoError, self.setAttributes(default, type, min, max, silent)
+
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
 	@dbus.service.method(InterfaceBusItem, out_signature = 'v')
@@ -475,7 +478,9 @@ class GroupObject(dbus.service.Object):
 			if settingObject.type != itemType:
 				return AddSettingError.TypeDiffer, None
 
-			changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
+			error, changed = settingObject._updateAttributes(defaultValue, itemType, min, max, silent)
+			if error != AddSettingError.NoError:
+				return error, settingObject
 			if not changed:
 				return AddSettingError.NoError, settingObject
 
@@ -593,6 +598,26 @@ class ClassAndVrmInstance(SettingObject):
 
 		value = self.group._parent.assureFreeInstance(devClass, instance, self)
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
+
+	def _updateAttributes(self, default, type, min, max, silent):
+		valid, devClass, instance = parseClassInstanceString(default)
+		if not valid:
+			return AddSettingError.InvalidDefault, False
+
+		changed = SettingObject.setAttributes(self, default, type, min, max, silent)
+
+		# When something has changed we should return True as second element.
+		# When returning True, _setValue will be called with self.value as the new value.
+		# Besides comparing the attributes (in setAttributes), we also need to compare the
+		# devClass in the new default to the devClass in the current value. When they are
+		# different, we copy the new default to self.value and return True, so _setValue will
+		# be called in it can assign a valid instance number for the new devClass.
+		# We always need to perform this comparison, even when changed == False, because the value
+		# might also have been changed using a SetValue, which did not change the default!
+		if devClass != self.value.split(":")[0]:
+			self.value = default
+			changed = True
+		return AddSettingError.NoError, changed
 
 	def SetDefault(self):
 		return DBUS_ERR
