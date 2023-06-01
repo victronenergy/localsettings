@@ -357,6 +357,13 @@ def migrate_fischerpanda_autostart(localSettings, tree, version):
 	else:
 		delete_from_tree(tree, "/Settings/Services/FischerPandaAutoStartStop")
 
+def migrate_fischerpanda_to_generic_genset(localSettings, tree, version):
+	if version >= 12:
+		return
+
+	dev = tree.xpath("/Settings/FischerPanda0")
+	rename_node(dev[0], "Generator1")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -368,6 +375,7 @@ def migrate(localSettings, tree, version):
 	migrate_cgwacs_deviceinstance(localSettings, tree, version)
 	migrate_adc_settings(localSettings, tree, version)
 	migrate_fischerpanda_autostart(localSettings, tree, version)
+	migrate_fischerpanda_to_generic_genset(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
