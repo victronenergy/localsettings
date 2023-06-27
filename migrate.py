@@ -32,6 +32,29 @@ def rename_node(node, new_name):
 	delete_from_tree(parent, new_name)
 	node.tag = new_name
 
+# Change the class name and try to preserve the current instance.
+# The next free one will be used if already taken.
+def change_class(node, classname):
+	try:
+		old = node.text.split(":")
+		instance = int(old[1])
+		oldInstance = instance
+		oldClass = old[0]
+		node.set("default", node.get("default").replace(oldClass + ":", classname + ":"))
+
+		while True:
+			newValue = classname + ":" + str(instance)
+			node.text = newValue
+			result = int(node.xpath("count(/Settings/Devices/*/ClassAndVrmInstance[text() = '" + newValue + "'])"))
+			if result == 1:
+				break
+			instance += 1
+
+		if oldInstance != instance:
+			print("WARNING: changing " + oldClass + ":" + str(oldInstance) + " to " + newValue)
+	except:
+		print("could not change the class")
+
 ## Migrate old canbus settings
 def migrate_can_profile(localSettings, tree, version):
 	if version != 1:
@@ -365,6 +388,23 @@ def migrate_fischerpanda_to_generic_genset(localSettings, tree, version):
 	if dev:
 		rename_node(dev[0], "Generator1")
 
+def migrate_analog_sensors_classes(localSettings, tree, version):
+	if version >= 13:
+		return
+
+	for dev in tree.xpath("/Settings/Devices/*/ClassAndVrmInstance[starts-with(text(),'analog:')]/.."):
+		# TemperatureType is used by mopeka, TemperatureType2 by dbus-adc.
+		if dev.find("FluidType") is not None or dev.find("FluidType2") is not None:
+			newClass = "tank"
+		# TemperatureType is used by ruuvi, TemperatureType2 by dbus-adc.
+		elif dev.find("TemperatureType") is not None or dev.find("TemperatureType2") is not None:
+			newClass = "temperature"
+		else:
+			print("unknown function: " + function)
+			continue
+
+		change_class(dev.find('ClassAndVrmInstance'), newClass)
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -377,6 +417,7 @@ def migrate(localSettings, tree, version):
 	migrate_adc_settings(localSettings, tree, version)
 	migrate_fischerpanda_autostart(localSettings, tree, version)
 	migrate_fischerpanda_to_generic_genset(localSettings, tree, version)
+	migrate_analog_sensors_classes(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
