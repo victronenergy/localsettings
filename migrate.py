@@ -362,7 +362,8 @@ def migrate_fischerpanda_to_generic_genset(localSettings, tree, version):
 		return
 
 	dev = tree.xpath("/Settings/FischerPanda0")
-	rename_node(dev[0], "Generator1")
+	if dev:
+		rename_node(dev[0], "Generator1")
 
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
