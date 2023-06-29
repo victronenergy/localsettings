@@ -193,6 +193,7 @@ class LocalSettingsTest(unittest.TestCase):
 
 
 	def _stopLocalSettings(self):
+		self.sp.stdout.close()
 		self.sp.kill()
 		self.sp.wait()
 
