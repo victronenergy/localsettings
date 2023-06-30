@@ -400,7 +400,7 @@ def migrate_analog_sensors_classes(localSettings, tree, version):
 		elif dev.find("TemperatureType") is not None or dev.find("TemperatureType2") is not None:
 			newClass = "temperature"
 		else:
-			print("unknown function: " + function)
+			print("WARN:could not determine the class of " + dev.tag)
 			continue
 
 		change_class(dev.find('ClassAndVrmInstance'), newClass)
