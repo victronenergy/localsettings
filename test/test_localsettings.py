@@ -141,7 +141,7 @@ class LocalSettingsTest(unittest.TestCase):
 				# don't check the type, as there is no GetType() available
 				# result['type'] = i._proxy.GetType()
 			except Exception as e:
-				print("FAILED: " + str(e))
+				self.fail("FAILED: " + str(e))
 				print(details)
 
 			self.assertEqual(details, result)
