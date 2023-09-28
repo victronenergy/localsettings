@@ -133,15 +133,10 @@ class LocalSettingsTest(unittest.TestCase):
 			result = copy.deepcopy(details)
 
 			try:
-				result['value'] = i.get_value().real
-				result['default'] = i._proxy.GetDefault().real
-
-				# don't ask me why, but getMin() and getMax() return a string...
-				result['min'] = int(i._proxy.GetMin()) if details['type'] == 'i' else float(i._proxy.GetMin())
-				result['max'] = int(i._proxy.GetMax()) if details['type'] == 'i' else float(i._proxy.GetMax())
-
-				# don't check the type, as there is no GetType() available
-				# result['type'] = i._proxy.GetType()
+				result['value'] = i.get_value()
+				result['default'] = i._proxy.GetDefault()
+				result['min'] = i._proxy.GetMin()
+				result['max'] = i._proxy.GetMax()
 			except Exception as e:
 				self.fail("FAILED: " + str(e))
 				print(details)
