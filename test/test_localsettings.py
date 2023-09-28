@@ -109,6 +109,8 @@ class LocalSettingsTest(unittest.TestCase):
 		testsets['int-re-add-same-min-max'] = {'group': 'g', 'setting': 'in', 'default': 200, 'value': 100, 'type': 'i', 'min': 0, 'max': 0}
 		testsets['int-re-add-other-min-max'] = {'group': 'g', 'setting': 'in', 'default': 201, 'value': 100, 'type': 'i', 'min': 10, 'max': 1000}
 		testsets['float-re-add-other-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 1.0, 'max': 1001.0}
+		# min / max is actually None, but the dbus specification has no representation for that, so 0 is used.
+		testsets['string'] = {'group': 'g', 'setting': 'string', 'default': "test", 'value': "test", 'type': 's', 'min': 0, 'max': 0}
 
 		for name, details in testsets.items():
 			print ("\n\n===Testing %s===\n" % name)
