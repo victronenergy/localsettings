@@ -255,6 +255,38 @@ class LocalSettingsTest(unittest.TestCase):
 			self.assertTrue(found1)
 			self.assertTrue(found2)
 
+	def test_vrm_instance(self):
+		print("\n===Testing VRM Instances ===\n")
+		definition = [
+			{"path": "Devices/a/ClassAndVrmInstance", "default": "battery:1"},
+			{"path": "Devices/b/ClassAndVrmInstance", "default": "battery:1"},
+			{"path": "Devices/c/ClassAndVrmInstance", "default": "battery:00002"},
+		]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 3)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/a/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "battery:1")
+
+		self.assertEqual(settings[1]["error"], 0)
+		self.assertEqual(settings[1]["path"], "Devices/b/ClassAndVrmInstance")
+		self.assertEqual(settings[1]["value"], "battery:2")
+
+		self.assertEqual(settings[2]["error"], 0)
+		self.assertEqual(settings[2]["path"], "Devices/c/ClassAndVrmInstance")
+		self.assertEqual(settings[2]["value"], "battery:3")
+
+		definition = [ {"path": "Devices/d/ClassAndVrmInstance", "default": "battery:2", "replaces": ["Devices/a/ClassAndVrmInstance"] } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		# 'd' should now have the old instance of 'a' and 'a' itself should not own it anymore.
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/d/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "battery:1")
+		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), None)
+
 	def _startLocalSettings(self):
 		self._isUp = False
 		self.sp = subprocess.Popen([sys.executable, os.path.join(here, "..", "localsettings.py"), "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
