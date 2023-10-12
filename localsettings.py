@@ -461,7 +461,8 @@ class GroupObject(dbus.service.Object):
 				for old in replaces:
 					oldObject = self.getSettingObject(old)
 					if oldObject:
-						oldValue = oldObject.GetValue()
+						# mind it, get the value directly instead of GetValue, since it returns a dbus type nowadays
+						oldValue = oldObject.value
 						if type(oldValue) == type(value):
 							value = oldValue
 						else:
