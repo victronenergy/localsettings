@@ -175,6 +175,24 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(0, self._add_setting('g', 's', 0, 'i', 0, 0))
 		self.assertGreater(0, self._add_setting('g', 's', 0, 'f', 0, 0))
 
+	def get_value(self, path):
+		object = self._dbus.get_object("com.victronenergy.settings", os.path.join("/Settings", path))
+		try:
+			get_value_cmd = object.get_dbus_method("GetValue")
+			return get_value_cmd()
+		except:
+			return None
+
+	def test_remove_setting(self):
+		print("\n===Testing RemoveSettings ===\n")
+		self.assertEqual(0, self._add_setting('g', 's', 0, 'i', 0, 0))
+		object = self._dbus.get_object("com.victronenergy.settings", "/Settings")
+		rm_settings = object.get_dbus_method("RemoveSettings")
+		self.assertEqual(self.get_value("g/s"), 0)
+		reply = rm_settings(["g/s"])
+		self.assertEqual(reply[0], 0)
+		self.assertEqual(self.get_value("g/s"), None)
+
 	def _startLocalSettings(self):
 		self._isUp = False
 		self.sp = subprocess.Popen([sys.executable, os.path.join(here, "..", "localsettings.py"), "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
