@@ -193,6 +193,68 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(reply[0], 0)
 		self.assertEqual(self.get_value("g/s"), None)
 
+	def test_multiple_settings(self):
+		print("\n===Testing Multiple Settings ===\n")
+
+		# note: _value is _not_ part of the dbus, but what the outcome should be.
+		parameters = [
+			{'path': 'g/in', 'default': 100, '_value': 100},
+			{'path': 'g/iw', 'default': 101, 'min': 0, 'max': 101, '_value': 101},
+			{'path': 'g/f2', 'default': 102.0, '_value': 102.0},
+			{'path': 'g/f', 'default': 103.0, 'min': 0.0, 'max': 1000.0, '_value': 103.0},
+			{'path': '0g/s', 'default': 104, '_value': 104},
+			{'path': 'g/0s', 'default': 105, '_value': 105},
+			{'path': 'g/in', 'default': 200, '_value': 100},
+			{'path': 'g/in', 'default': 201, 'min': 10, 'max': 1000, '_value': 100},
+			{'path': 'g/f', 'default': 103.0, 'min': 1.0, 'max': 1001.0, '_value': 103.0},
+			{'path': 'g/string', 'default': "test", '_value': "test"}
+		]
+
+		# filter out the _value, that should be the result.
+		values = []
+		for i in range(len(parameters) - 1, -1, -1):
+			values.insert(0, parameters[i]["_value"])
+			del parameters[i]["_value"]
+
+		result = self._add_settings(parameters)
+		self.assertEqual(len(parameters), len(result))
+		for n in range(len(parameters)):
+			self.assertEqual(result[n]["error"], 0)
+			self.assertEqual(result[n]["value"], values[n])
+
+		# get the unique paths
+		paths = set()
+		for parameter in parameters:
+			paths.add(parameter["path"])
+
+		# verify getItems reports all the settings correctly.
+		result = self._get_items()
+		self.assertEqual(len(result), len(paths))
+		for path, properties in result.items():
+			found1 = found2 = False
+
+			# Note: the properties like min/max etc should be the last one being set..
+			for i in range(len(parameters) - 1, -1, -1):
+				if path == "/Settings/" + parameters[i]["path"]:
+					if "min" in parameters[i]:
+						self.assertEqual(properties["Min"], parameters[i]["min"])
+					if "max" in parameters[i]:
+						self.assertEqual(properties["Max"], parameters[i]["max"])
+					if "default" in parameters[i]:
+						self.assertEqual(properties["Default"], parameters[i]["default"])
+					found1 = True
+					break
+
+			# For the value it should be the first default, and the value should be kept
+			for i in range(len(parameters)):
+				if path == "/Settings/" + parameters[i]["path"]:
+					self.assertEqual(properties["Value"], parameters[i]["default"])
+					found2 = True
+					break
+
+			self.assertTrue(found1)
+			self.assertTrue(found2)
+
 	def _startLocalSettings(self):
 		self._isUp = False
 		self.sp = subprocess.Popen([sys.executable, os.path.join(here, "..", "localsettings.py"), "--path=" + self._dataDir, "--no-delay"], stdout=subprocess.PIPE)
@@ -212,6 +274,16 @@ class LocalSettingsTest(unittest.TestCase):
 	def _add_setting(self, group, setting, value, type, minimum, maximum, rpc_name='AddSetting'):
 		item = VeDbusItemImport(self._dbus, 'com.victronenergy.settings', '/Settings', createsignal=False)
 		return item._proxy.get_dbus_method(rpc_name)(group, setting, value, type, minimum, maximum)
+
+	def _add_settings(self, properties):
+		object = self._dbus.get_object("com.victronenergy.settings", "/Settings")
+		add_settings = object.get_dbus_method("AddSettings", dbus_interface="com.victronenergy.Settings")
+		return add_settings(properties)
+
+	def _get_items(self):
+		object = self._dbus.get_object("com.victronenergy.settings", "/")
+		get_items = object.get_dbus_method("GetItems", dbus_interface="com.victronenergy.BusItem")
+		return get_items()
 
 	def _call_me(self, service, path, changes):
 		self._called = [service, path, changes]
