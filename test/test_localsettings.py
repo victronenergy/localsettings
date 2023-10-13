@@ -183,6 +183,19 @@ class LocalSettingsTest(unittest.TestCase):
 		except:
 			return None
 
+	def set_value(self, path, value):
+		object = self._dbus.get_object("com.victronenergy.settings", os.path.join("/Settings", path))
+		set_value_cmd = object.get_dbus_method("SetValue")
+		return set_value_cmd(value)
+
+	def get_default(self, path):
+		object = self._dbus.get_object("com.victronenergy.settings", os.path.join("/Settings", path))
+		try:
+			get_default_cmd = object.get_dbus_method("GetDefault")
+			return get_default_cmd()
+		except:
+			return None
+
 	def test_remove_setting(self):
 		print("\n===Testing RemoveSettings ===\n")
 		self.assertEqual(0, self._add_setting('g', 's', 0, 'i', 0, 0))
@@ -261,9 +274,11 @@ class LocalSettingsTest(unittest.TestCase):
 			{"path": "Devices/a/ClassAndVrmInstance", "default": "battery:1"},
 			{"path": "Devices/b/ClassAndVrmInstance", "default": "battery:1"},
 			{"path": "Devices/c/ClassAndVrmInstance", "default": "battery:00002"},
+			{"path": "Devices/q/ClassAndVrmInstance", "default": "battery:3.5"},
+			{"path": "Devices/b/ClassAndVrmInstance", "default": "battery:1.5"},
 		]
 		settings = self._add_settings(definition)
-		self.assertEqual(len(settings), 3)
+		self.assertEqual(len(settings), len(definition))
 
 		self.assertEqual(settings[0]["error"], 0)
 		self.assertEqual(settings[0]["path"], "Devices/a/ClassAndVrmInstance")
@@ -277,6 +292,14 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[2]["path"], "Devices/c/ClassAndVrmInstance")
 		self.assertEqual(settings[2]["value"], "battery:3")
 
+		# error on new path
+		self.assertEqual(settings[3]["path"], "Devices/q/ClassAndVrmInstance")
+		self.assertEqual(settings[3]["error"], -6)
+
+		# error on existing path
+		self.assertEqual(settings[4]["path"], "Devices/b/ClassAndVrmInstance")
+		self.assertEqual(settings[4]["error"], -6)
+
 		definition = [ {"path": "Devices/d/ClassAndVrmInstance", "default": "battery:2", "replaces": ["Devices/a/ClassAndVrmInstance"] } ]
 		settings = self._add_settings(definition)
 		self.assertEqual(len(settings), 1)
@@ -286,6 +309,20 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[0]["path"], "Devices/d/ClassAndVrmInstance")
 		self.assertEqual(settings[0]["value"], "battery:1")
 		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), None)
+
+		# Support for changing classes when adding settings
+		definition = [ {"path": "Devices/b/ClassAndVrmInstance", "default": "tank:1" } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/b/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "tank:1")
+		self.assertEqual(self.get_default("Devices/b/ClassAndVrmInstance"), "tank:1")
+
+		self.set_value("Devices/d/ClassAndVrmInstance", "tank:1")
+		self.assertEqual(self.get_value("Devices/d/ClassAndVrmInstance"), "tank:2")
+		self.assertEqual(self.get_default("Devices/d/ClassAndVrmInstance"), "battery:2")
 
 	def _startLocalSettings(self):
 		self._isUp = False
