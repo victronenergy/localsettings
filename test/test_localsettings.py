@@ -4,15 +4,12 @@
 # Python
 import logging
 import os
-import sqlite3
 import sys
 import unittest
 import subprocess
 import time
 import platform
 import dbus
-import threading
-import fcntl
 import copy
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
@@ -21,7 +18,6 @@ import os
 # Local
 here = os.path.dirname(__file__)
 sys.path.insert(1, os.path.join(here, '../ext/velib_python'))
-from settingsdevice import SettingsDevice
 from vedbus import VeDbusItemImport
 
 logger = logging.getLogger(__file__)
