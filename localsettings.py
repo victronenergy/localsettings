@@ -149,7 +149,7 @@ class SettingObject(dbus.service.Object):
 		self.max = max
 		self.silent = silent
 
-		return ret
+		return AddSettingError.NoError, ret
 
 	## Dbus method GetValue
 	# Returns the value of the dbus-object-path (the settings).
@@ -476,9 +476,9 @@ class GroupObject(dbus.service.Object):
 			if settingObject.type != itemType:
 				return AddSettingError.TypeDiffer, None
 
-			changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
-			if not changed:
-				return AddSettingError.NoError, settingObject
+			error, changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
+			if not changed or error != AddSettingError.NoError:
+				return error, settingObject
 
 			# There are changes, save them while keeping the current value.
 			value = settingObject.value
