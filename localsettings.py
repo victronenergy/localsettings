@@ -595,6 +595,23 @@ class ClassAndVrmInstance(SettingObject):
 		value = self.group._parent.assureFreeInstance(devClass, instance, self)
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
 
+	def setAttributes(self, default, type, min, max, silent):
+		valid, newDevClass, _instance = parseClassInstanceString(default)
+		if not valid:
+			return AddSettingError.InvalidDefault, False
+
+		error, changed = super().setAttributes(default, type, min, max, silent)
+
+		# When the device class in the default changed, set the value to the new default,
+		# so the class is changed accordingly. _setValue will make sure an unique id for
+		# it in the new class.
+		if changed:
+			valid, currentDevClass, _instance = parseClassInstanceString(self.value)
+			if valid and newDevClass != currentDevClass:
+				self.value = default
+
+		return AddSettingError.NoError, changed
+
 	def SetDefault(self):
 		return DBUS_ERR
 
