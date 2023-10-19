@@ -306,18 +306,19 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[0]["value"], "battery:1")
 		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), None)
 
-		# Support for changing classes when adding settings
+		# Check that the class type doesn't change when the default changes.
 		definition = [ {"path": "Devices/b/ClassAndVrmInstance", "default": "tank:1" } ]
 		settings = self._add_settings(definition)
 		self.assertEqual(len(settings), 1)
 
 		self.assertEqual(settings[0]["error"], 0)
 		self.assertEqual(settings[0]["path"], "Devices/b/ClassAndVrmInstance")
-		self.assertEqual(settings[0]["value"], "tank:1")
+		self.assertEqual(settings[0]["value"], "battery:2")
 		self.assertEqual(self.get_default("Devices/b/ClassAndVrmInstance"), "tank:1")
 
+		# A SetValue should change the class though.
 		self.set_value("Devices/d/ClassAndVrmInstance", "tank:1")
-		self.assertEqual(self.get_value("Devices/d/ClassAndVrmInstance"), "tank:2")
+		self.assertEqual(self.get_value("Devices/d/ClassAndVrmInstance"), "tank:1")
 		self.assertEqual(self.get_default("Devices/d/ClassAndVrmInstance"), "battery:2")
 
 	def _startLocalSettings(self):
