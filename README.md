@@ -122,12 +122,6 @@ dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "a/Cla
  {'error': 0, 'path': 'b/ClassAndVrmInstance', 'value': 'battery:2'}]
 ```
 
-In case the unique identifier changes, the following can be used to keep the original instance:
-```
-dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "c/ClassAndVrmInstance", "default": "battery:2", "replaces": ["a/ClassAndVrmInstance"]}]'
-[{'error': 0, 'path': 'c/ClassAndVrmInstance', 'value': 'battery:1'}]
-```
-
 #### RemoveSettings
 Removes all settings for a given array with paths
 

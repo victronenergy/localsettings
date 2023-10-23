@@ -416,7 +416,7 @@ class GroupObject(dbus.service.Object):
 
 		return self.addSetting(relativePath, defaultValue, itemType, minimum, maximum, silent)
 
-	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent, replaces=None):
+	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent):
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in relativePath:
 			return AddSettingError.UnderscorePrefix, None
@@ -455,19 +455,6 @@ class GroupObject(dbus.service.Object):
 			newSetting = True
 			if self.getGroup(relativePath):
 				return AddSettingError.IsGroup, None
-
-			# If a settings is being replaced, keep the old value and remove the old setting
-			if replaces:
-				for old in replaces:
-					oldObject = self.getSettingObject(old)
-					if oldObject:
-						# mind it, get the value directly instead of GetValue, since it returns a dbus type nowadays
-						oldValue = oldObject.value
-						if type(oldValue) == type(value):
-							value = oldValue
-						else:
-							logging.warn("Ignoring old value of %s since it has a different type", old)
-						oldObject.remove()
 
 			settingObject = self.createSettingObjectAndGroups(relativePath)
 			settingObject.setAttributes(defaultValue, itemType, min, max, silent)
@@ -524,9 +511,7 @@ class GroupObject(dbus.service.Object):
 			if props.get("silent"):
 				silent = True
 
-			replaces = props.get("replaces")
-
-			result["error"], setting = self.addSetting(path, default, typeName, props.get("min"), props.get("max"), silent, replaces)
+			result["error"], setting = self.addSetting(path, default, typeName, props.get("min"), props.get("max"), silent)
 			if setting:
 				result["value"] = setting.GetValue()
 

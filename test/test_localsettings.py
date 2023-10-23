@@ -296,16 +296,6 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[4]["path"], "Devices/b/ClassAndVrmInstance")
 		self.assertEqual(settings[4]["error"], -6)
 
-		definition = [ {"path": "Devices/d/ClassAndVrmInstance", "default": "battery:2", "replaces": ["Devices/a/ClassAndVrmInstance"] } ]
-		settings = self._add_settings(definition)
-		self.assertEqual(len(settings), 1)
-
-		# 'd' should now have the old instance of 'a' and 'a' itself should not own it anymore.
-		self.assertEqual(settings[0]["error"], 0)
-		self.assertEqual(settings[0]["path"], "Devices/d/ClassAndVrmInstance")
-		self.assertEqual(settings[0]["value"], "battery:1")
-		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), None)
-
 		# Check that the class type doesn't change when the default changes.
 		definition = [ {"path": "Devices/b/ClassAndVrmInstance", "default": "tank:1" } ]
 		settings = self._add_settings(definition)
@@ -317,9 +307,9 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(self.get_default("Devices/b/ClassAndVrmInstance"), "tank:1")
 
 		# A SetValue should change the class though.
-		self.set_value("Devices/d/ClassAndVrmInstance", "tank:1")
-		self.assertEqual(self.get_value("Devices/d/ClassAndVrmInstance"), "tank:1")
-		self.assertEqual(self.get_default("Devices/d/ClassAndVrmInstance"), "battery:2")
+		self.set_value("Devices/a/ClassAndVrmInstance", "tank:1")
+		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), "tank:1")
+		self.assertEqual(self.get_default("Devices/a/ClassAndVrmInstance"), "battery:1")
 
 	def _startLocalSettings(self):
 		self._isUp = False
