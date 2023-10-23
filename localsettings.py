@@ -139,7 +139,7 @@ class SettingObject(dbus.service.Object):
 	def id(self):
 		return self._object_path.split("/")[-1]
 
-	def setAttributes(self, default, type, min, max, silent):
+	def setAttributes(self, default, type, min, max, silent, forceValue = False):
 		ret = self.default != default or self.type != type or self.min != min or \
 				self.max != max or self.silent != silent
 
@@ -148,6 +148,9 @@ class SettingObject(dbus.service.Object):
 		self.min = min
 		self.max = max
 		self.silent = silent
+
+		if ret and forceValue:
+			self.value = default
 
 		return AddSettingError.NoError, ret
 
@@ -416,7 +419,7 @@ class GroupObject(dbus.service.Object):
 
 		return self.addSetting(relativePath, defaultValue, itemType, minimum, maximum, silent)
 
-	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent):
+	def addSetting(self, relativePath, defaultValue, itemType, minimum, maximum, silent, forceValue=False):
 		# A prefixing underscore is an escape char: don't allow it in a normal path
 		if "/_" in relativePath:
 			return AddSettingError.UnderscorePrefix, None
@@ -463,11 +466,11 @@ class GroupObject(dbus.service.Object):
 			if settingObject.type != itemType:
 				return AddSettingError.TypeDiffer, None
 
-			error, changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent)
+			error, changed = settingObject.setAttributes(defaultValue, itemType, min, max, silent, forceValue)
 			if not changed or error != AddSettingError.NoError:
 				return error, settingObject
 
-			# There are changes, save them while keeping the current value.
+			# There are changes, save them while keeping the current value (which might have changed because of forceValue)
 			value = settingObject.value
 
 		if not settingObject._setValue(value, printLog=False, sendAttributes=True) and newSetting:
@@ -511,7 +514,7 @@ class GroupObject(dbus.service.Object):
 			if props.get("silent"):
 				silent = True
 
-			result["error"], setting = self.addSetting(path, default, typeName, props.get("min"), props.get("max"), silent)
+			result["error"], setting = self.addSetting(path, default, typeName, props.get("min"), props.get("max"), silent, bool(props.get("forceValue")))
 			if setting:
 				result["value"] = setting.GetValue()
 
@@ -580,12 +583,22 @@ class ClassAndVrmInstance(SettingObject):
 		value = self.group._parent.assureFreeInstance(devClass, instance, self)
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
 
-	def setAttributes(self, default, type, min, max, silent):
-		valid, newDevClass, _instance = parseClassInstanceString(default)
+	def setAttributes(self, default, type, min, max, silent, forceValue = False):
+		valid, newDevClass, newInstance = parseClassInstanceString(default)
 		if not valid:
 			return AddSettingError.InvalidDefault, False
 
-		return super().setAttributes(default, type, min, max, silent)
+		error, changed = super().setAttributes(default, type, min, max, silent, False)
+
+		if not changed or error != AddSettingError.NoError:
+			return error, False
+
+		if forceValue:
+			oldValid, oldDevClass, oldInstance = parseClassInstanceString(self.value)
+			if not oldValid or oldDevClass != newDevClass:
+				self.value = newDevClass + ":" + str(newInstance)
+
+		return AddSettingError.NoError, True
 
 	def SetDefault(self):
 		return DBUS_ERR
