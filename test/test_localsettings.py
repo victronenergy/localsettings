@@ -216,6 +216,8 @@ class LocalSettingsTest(unittest.TestCase):
 			{'path': 'g/in', 'default': 200, '_value': 100},
 			{'path': 'g/in', 'default': 201, 'min': 10, 'max': 1000, '_value': 100},
 			{'path': 'g/f', 'default': 103.0, 'min': 1.0, 'max': 1001.0, '_value': 103.0},
+			{'path': 'g/f', 'default': 95.0, 'min': 1.0, 'max': 1001.0, '_value': 103.0},
+			{'path': 'g/f', 'default': 95.0, 'min': 1.0, 'max': 1001.0, 'forceValue': 0, '_value': 103.0},
 			{'path': 'g/string', 'default': "test", '_value': "test"}
 		]
 
@@ -264,6 +266,23 @@ class LocalSettingsTest(unittest.TestCase):
 			self.assertTrue(found1)
 			self.assertTrue(found2)
 
+		# verify that value is changed when forceValue = 1
+		self._add_settings([{'path': 'g/f', 'default': 98.0, 'min': 1.0, 'max': 1001.0, 'forceValue': 1}])
+		result = self._get_items()
+		self.assertEqual(result["/Settings/g/f"]["Value"], 98.0)
+		self.assertEqual(result["/Settings/g/f"]["Default"], 98.0)
+
+		# verify that value is not changed when forceValue = 1, but the default stays the same
+		self.set_value("g/f", 95.0)
+		result = self._get_items()
+		self.assertEqual(result["/Settings/g/f"]["Value"], 95.0)
+		self.assertEqual(result["/Settings/g/f"]["Default"], 98.0)
+
+		self._add_settings([{'path': 'g/f', 'default': 98.0, 'min': 1.0, 'max': 1001.0, 'forceValue': 1}])
+		result = self._get_items()
+		self.assertEqual(result["/Settings/g/f"]["Value"], 95.0)
+		self.assertEqual(result["/Settings/g/f"]["Default"], 98.0)
+
 	def test_vrm_instance(self):
 		print("\n===Testing VRM Instances ===\n")
 		definition = [
@@ -296,6 +315,10 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[4]["path"], "Devices/b/ClassAndVrmInstance")
 		self.assertEqual(settings[4]["error"], -6)
 
+		# a: battery:1, battery:1
+		# b: battery:1, battery:2
+		# c: battery:2, battery:3
+
 		# Check that the class type doesn't change when the default changes.
 		definition = [ {"path": "Devices/b/ClassAndVrmInstance", "default": "tank:1" } ]
 		settings = self._add_settings(definition)
@@ -306,10 +329,78 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(settings[0]["value"], "battery:2")
 		self.assertEqual(self.get_default("Devices/b/ClassAndVrmInstance"), "tank:1")
 
+		# a: battery:2, battery:1
+		# b: tank:1, battery:2
+		# c: battery:2, battery:3
+
 		# A SetValue should change the class though.
 		self.set_value("Devices/a/ClassAndVrmInstance", "tank:1")
 		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), "tank:1")
 		self.assertEqual(self.get_default("Devices/a/ClassAndVrmInstance"), "battery:1")
+
+		# a: battery:2, tank:1
+		# b: tank:1, battery:2
+		# c: battery:2, battery:3
+
+		# Check that the class type does change when the default changes and forceValue is 1.
+		definition = [ {"path": "Devices/c/ClassAndVrmInstance", "default": "tank:1", "forceValue": 1 } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/c/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "tank:2")
+		self.assertEqual(self.get_default("Devices/c/ClassAndVrmInstance"), "tank:1")
+
+		# a: battery:2, tank:1
+		# b: tank:1, battery:2
+		# c: tank:1, tank:2
+
+		# Check that the class type does not change when the default changes and forceValue is 0.
+		definition = [ {"path": "Devices/c/ClassAndVrmInstance", "default": "solar:1", "forceValue": 0 } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/c/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "tank:2")
+		self.assertEqual(self.get_default("Devices/c/ClassAndVrmInstance"), "solar:1")
+
+		# a: battery:2, tank:1
+		# b: tank:1, battery:2
+		# c: solar:1, tank:2
+
+		# Check that the value does not change when the value is already the correct class
+		# Setup for the test
+		self.set_value("Devices/c/ClassAndVrmInstance", "tank:3")
+		self.assertEqual(self.get_value("Devices/c/ClassAndVrmInstance"), "tank:3")
+		self.assertEqual(self.get_default("Devices/c/ClassAndVrmInstance"), "solar:1")
+
+		definition = [ {"path": "Devices/c/ClassAndVrmInstance", "default": "tank:1", "forceValue": 1 } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/c/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "tank:3")
+		self.assertEqual(self.get_default("Devices/c/ClassAndVrmInstance"), "tank:1")
+
+		# a: battery:2, tank:1
+		# b: tank:1, battery:2
+		# c: tank:1, tank:3
+
+		definition = [ {"path": "Devices/c/ClassAndVrmInstance", "default": "tank:2", "forceValue": 1 } ]
+		settings = self._add_settings(definition)
+		self.assertEqual(len(settings), 1)
+
+		self.assertEqual(settings[0]["error"], 0)
+		self.assertEqual(settings[0]["path"], "Devices/c/ClassAndVrmInstance")
+		self.assertEqual(settings[0]["value"], "tank:3")
+		self.assertEqual(self.get_default("Devices/c/ClassAndVrmInstance"), "tank:2")
+
+		# a: battery:2, tank:1
+		# b: tank:1, battery:2
+		# c: tank:2, tank:3
 
 	def _startLocalSettings(self):
 		self._isUp = False
