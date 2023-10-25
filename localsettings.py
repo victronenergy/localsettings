@@ -474,8 +474,8 @@ class GroupObject(dbus.service.Object):
 			settingObject.remove()
 			return AddSettingError.InvalidDefault, None
 
-		logging.info('Added new setting %s. default:%s, type:%s, min:%s, max: %s, silent: %s' % \
-						 (self._path() + "/" + relativePath, defaultValue, itemType, minimum, maximum, silent))
+		logging.info('Added new setting %s. value:%s, default:%s, type:%s, min:%s, max: %s, silent: %s' % \
+						 (self._path() + "/" + relativePath, settingObject.value, defaultValue, itemType, minimum, maximum, silent))
 
 		return AddSettingError.NoError, settingObject
 
