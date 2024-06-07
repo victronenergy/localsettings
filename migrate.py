@@ -1,6 +1,22 @@
 from lxml import etree
 import os
 
+VRM_PORTAL_OFF = 0
+VRM_PORTAL_READ_ONLY = 1
+VRM_PORTAL_FULL = 2
+
+SECURITY_PROFILE_SECURED = 0
+SECURITY_PROFILE_WEAK = 1
+SECURITY_PROFILE_UNSECURED = 2
+SECURITY_PROFILE_INDETERMINATE = 3
+
+def create_empty_password_file():
+	try:
+		open('/data/conf/vncpassword.txt', 'w').close()
+	except:
+		print("writing password file failed")
+		pass
+
 def delete_from_tree(tree, path):
 	obj = tree.xpath(path)
 	if not obj:
@@ -418,6 +434,118 @@ def migrate_vedirect_classes(localsettings, tree, version):
 		except:
 			pass
 
+def migrate_security_settings(localsettings, tree, version):
+	if version >= 14:
+		return
+
+	# defaults, just in case an unexpected exception is thrown
+	vrmPortal = VRM_PORTAL_FULL
+	securityProfile = SECURITY_PROFILE_SECURED
+
+	# is there currently a password set?
+	try:
+		with open('/data/conf/vncpassword.txt') as f:
+			passwordSet = f.readline().strip() != ""
+	except:
+		passwordSet = False # doubtful: VNC e.g. won't allow logins if the password file is missing
+
+	# Convert VRM Logmode
+	try:
+		node = tree.xpath("/Settings/Vrmlogger/Logmode")
+		if node:
+			logMode = int(node[0].text)
+
+			# if logging to VRM was off, it remains off
+			if logMode == 0:
+				vrmPortal = VRM_PORTAL_OFF
+			else:
+				# Check VRM two-communication / MqttVrm
+				twoWay = False
+				try:
+					node = tree.xpath("/Settings/Services/MqttVrm")
+					if node and int(node[0].text) == 1:
+						twoWay = True
+				except:
+					pass
+
+				# two-way communication enabled -> Full Mode
+				if twoWay:
+					vrmPortal = VRM_PORTAL_FULL
+				else:
+					vrmPortal = VRM_PORTAL_READ_ONLY #### doesn't correspond with the document
+	except:
+		pass
+
+	delete_from_tree(tree, '/Settings/Vrmlogger/Logmode')
+	delete_from_tree(tree, '/Settings/Services/MqttVrm')
+
+	# Set Security Profile for Remote Console on LAN
+	node = tree.xpath("/Settings/System/VncLocal")
+	if node and int(node[0].text) == 1:
+		if passwordSet:
+			securityProfile = SECURITY_PROFILE_WEAK
+		else:
+			securityProfile = SECURITY_PROFILE_UNSECURED
+	else:
+		# note: Secured without a password disables Remote Console on LAN like VncLocal == 0 used to do.
+		# Since VRM will not check the password file, make sure it is actually removed.
+		if not passwordSet:
+			try:
+				os.remove("/data/conf/vncpassword.txt")
+			except OSError:
+				pass
+		securityProfile = SECURITY_PROFILE_INDETERMINATE
+
+	# Merge VncInternet and VncLocal and set VRM Portal accordingly
+	try:
+		node = tree.xpath("/Settings/System/VncInternet")
+		if node and int(node[0].text) == 1:
+			# Remote Console v1 on VRM / VncInternet is merged with VncLocal, but on VRM it is
+			# only enabled when VRM portal is set to full.
+			create_or_update_node(tree.xpath("/Settings/System")[0], "VncLocal", 1)
+			vrmPortal = VRM_PORTAL_FULL
+	except:
+		pass
+
+	# XXX: keep VncInternet around for now, since venus-access depends on it, remote support /
+	# the ssh server won't be started after downgrading if gui-v2 is running, since gui-v1 adds
+	# this setting.
+	#
+	# delete_from_tree(tree, '/Settings/System/VncInternet')
+
+	# Handle the MQTT settings
+	mqttLocal = False
+	mqttLocalInsecure = False
+	try:
+		node = tree.xpath("/Settings/Services/MqttLocal")
+		if node and int(node[0].text) == 1:
+			mqttLocal = True
+		node = tree.xpath("/Settings/Services/MqttLocalInsecure")
+		if node and int(node[0].text) == 1:
+			mqttLocalInsecure = True
+	except:
+		pass
+
+	# The local mqtt broker didn't support authentication, so forcefully allow
+	# unauthorized access to be backwards compatible.
+	if mqttLocal or mqttLocalInsecure:
+		securityProfile = SECURITY_PROFILE_UNSECURED
+		create_empty_password_file()
+
+	delete_from_tree(tree, '/Settings/Services/MqttLocalInsecure')
+
+	# Add the converted settings
+	system = tree.getroot().find("System")
+	if system == None:
+		system = etree.SubElement(tree.getroot(), "System")
+	create_or_update_node(system, "SecurityProfile", securityProfile)
+
+	network = tree.getroot().find("Network")
+	if network == None:
+		network = etree.SubElement(tree.getroot(), "Network")
+	create_or_update_node(network, "VrmPortal", vrmPortal)
+
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -432,6 +560,7 @@ def migrate(localSettings, tree, version):
 	migrate_fischerpanda_to_generic_genset(localSettings, tree, version)
 	migrate_analog_sensors_classes(localSettings, tree, version)
 	migrate_vedirect_classes(localSettings, tree, version)
+	migrate_security_settings(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
