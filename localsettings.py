@@ -930,6 +930,9 @@ def main(argv):
 	# load system default settings, note need localSettings to be ready
 	loadSettingsDir(localSettings.sysSettingsDir, localSettings.settingsGroup)
 
+	# Not migration actually, but it needs to go somewhere. It must run after loadSettingsDir.
+	migrate.check_security(localSettings)
+
 	GLib.MainLoop().run()
 
 main(sys.argv[1:])

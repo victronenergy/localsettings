@@ -1,5 +1,6 @@
 from lxml import etree
 import os
+import subprocess
 
 VRM_PORTAL_OFF = 0
 VRM_PORTAL_READ_ONLY = 1
@@ -570,3 +571,33 @@ def cleanup_settings(tree):
 	delete_from_tree(tree, "/Settings/Fronius/InverterIds")
 	delete_from_tree(tree, "/Settings/Fronius/Inverters")
 	delete_from_tree(tree, "/Settings/Victron/Products")
+
+def check_security(localSettings):
+	# check if the password file should be restored. e.g. restore to defaults can
+	# remove the password file...
+	if os.path.isfile("/data/conf/vncpassword.txt"):
+		return
+
+	try:
+		# if the device was shipped with a password, restore it..
+		result = subprocess.run(["ve-is-passwd-set-by-default"])
+		if result.returncode == 0:
+			result = subprocess.run("ve-set-passwd-to-pincode")
+			if result.returncode != 0:
+				print("error: ve-set-passwd-to-pincode failed")
+		else:
+			# For older device, drop the default authentication, so an UI on LAN
+			# is available to configure the device and allow to set a password e.g.
+			securityProfile = localSettings.settingsGroup.getSettingObject("System/SecurityProfile")
+			if securityProfile is None:
+				print("error: System/SecurityProfile is missing")
+				return
+
+			if not os.path.exists("/dev/fb0"):
+				securityProfile.SetValue(SECURITY_PROFILE_UNSECURED)
+				create_empty_password_file()
+			else:
+				securityProfile.SetValue(SECURITY_PROFILE_INDETERMINATE)
+
+	except:
+		print("check_security: failed")
