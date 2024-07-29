@@ -47,7 +47,7 @@ from gi.repository import GLib
 ## Major version.
 FIRMWARE_VERSION_MAJOR = 0x01
 ## Minor version.
-FIRMWARE_VERSION_MINOR = 0x58
+FIRMWARE_VERSION_MINOR = 0x59
 ## Localsettings version.
 version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 
