@@ -581,9 +581,10 @@ class ClassAndVrmInstance(SettingObject):
 		return SettingObject._setValue(self, value, printLog, sendAttributes)
 
 	def setAttributes(self, default, type, min, max, silent):
-		valid, newDevClass, _instance = parseClassInstanceString(default)
-		if not valid:
-			return AddSettingError.InvalidDefault, False
+		if default is not None:
+			valid, newDevClass, _instance = parseClassInstanceString(default)
+			if not valid:
+				return AddSettingError.InvalidDefault, False
 
 		return super().setAttributes(default, type, min, max, silent)
 
