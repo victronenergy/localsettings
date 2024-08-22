@@ -547,6 +547,28 @@ def migrate_security_settings(localsettings, tree, version):
 	create_or_update_node(network, "VrmPortal", vrmPortal)
 
 
+# In Venus 3.20, a change in localsettings inadvertently made the default
+# attribute required on ClassAndVrmInstance tags. That causes settings files
+# migrated from before settingsVersion 8 to be corrupted, since the migration
+# did not add a default attribute.
+#
+# This is particularly bad, since it leaves the hardware inaccessible and the
+# only way to recover is a factory reset.  This is fixed in Venus 3.50, but to
+# ensure that old broken files are recovered, delete the ClassAndVrmInstance
+# tag if it has no attributes at all, since no information can be lost anyway
+# and that allows recovering the lost devices.
+def fix_broken_vrm_instance_tags(localsettings, tree, version):
+	if version >= 15:
+		return
+	nodes = tree.xpath("/Settings/Devices/*/ClassAndVrmInstance")
+	for node in nodes:
+		# If the node has no attributes, delete it. Nothing can be lost
+		# that isn't already lost.
+		if len(node.attrib) == 0:
+			parent = node.getparent()
+			print ("Cleaning ClassAndVrmInstance for " + parent.tag)
+			parent.remove(node)
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -562,6 +584,7 @@ def migrate(localSettings, tree, version):
 	migrate_analog_sensors_classes(localSettings, tree, version)
 	migrate_vedirect_classes(localSettings, tree, version)
 	migrate_security_settings(localSettings, tree, version)
+	fix_broken_vrm_instance_tags(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
