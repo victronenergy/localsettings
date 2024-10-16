@@ -616,7 +616,7 @@ def check_security(localSettings):
 				print("error: System/SecurityProfile is missing")
 				return
 
-			if not os.path.exists("/dev/fb0"):
+			if not os.path.exists("/dev/fb0") or os.path.exists("/etc/venus/headless"):
 				securityProfile.SetValue(SECURITY_PROFILE_UNSECURED)
 				create_empty_password_file()
 			else:
