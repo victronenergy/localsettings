@@ -616,7 +616,13 @@ def check_security(localSettings):
 				print("error: System/SecurityProfile is missing")
 				return
 
-			if not os.path.exists("/dev/fb0") or os.path.exists("/etc/venus/headless"):
+			driver = ""
+			try:
+				driver = os.path.basename(os.readlink("/sys/class/graphics/fb0/device/driver/module"))
+			except:
+				pass
+
+			if not os.path.exists("/dev/fb0") or driver == "vfb" or os.path.exists("/etc/venus/headless"):
 				securityProfile.SetValue(SECURITY_PROFILE_UNSECURED)
 				create_empty_password_file()
 			else:
