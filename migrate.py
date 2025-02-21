@@ -569,6 +569,15 @@ def fix_broken_vrm_instance_tags(localsettings, tree, version):
 			print ("Cleaning ClassAndVrmInstance for " + parent.tag)
 			parent.remove(node)
 
+def migrate_dess_limits(localSettings, tree, version):
+	if version >= 16:
+		return
+
+	dess = tree.getroot().find("DynamicEss")
+	if dess is not None:
+		for elem in dess.xpath("GridImportLimit|GridExportLimit|BatteryDischargeLimit|BatteryChargeLimit"):
+			elem.set("type", "f")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -585,6 +594,7 @@ def migrate(localSettings, tree, version):
 	migrate_vedirect_classes(localSettings, tree, version)
 	migrate_security_settings(localSettings, tree, version)
 	fix_broken_vrm_instance_tags(localSettings, tree, version)
+	migrate_dess_limits(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
