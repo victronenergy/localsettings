@@ -736,6 +736,16 @@ def loadSettingsFile(name, settingsGroup):
 			if itemType not in supportedTypes:
 				raise Exception('invalid type')
 
+			# mind it, whitespace is not supported for a string at the moment!!
+			# But lets at least encourage quoting strings so empty string are
+			# supported and it allows supporting it if needed.
+			if itemType == "s":
+				m = re.search(r'^"(.*)"$', defVal)
+				if m:
+					defVal = m[1]
+				else:
+					logging.warning("please quote string types for " + path)
+
 			defVal = convertToType(itemType, defVal)
 
 			if not isinstance(defVal, str):
