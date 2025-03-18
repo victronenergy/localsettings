@@ -40,6 +40,20 @@ def create_node(parent, tag, value, type = "i"):
 	child.text = str(value)
 	child.set("type", type)
 
+def get_or_create_node_and_parents(parent, path):
+	ids = path.split("/")
+	node = parent
+	for id in ids:
+		if id == "":
+			continue
+
+		child = node.find(id)
+		if child is None:
+			node = etree.SubElement(node, id)
+		else:
+			node = child
+	return node
+
 def rename_node(node, new_name):
 	if node == None:
 		return
@@ -578,6 +592,33 @@ def migrate_dess_limits(localSettings, tree, version):
 		for elem in dess.xpath("GridImportLimit|GridExportLimit|BatteryDischargeLimit|BatteryChargeLimit"):
 			elem.set("type", "f")
 
+def migrate_guiv2_brief_level(localSettings, tree, version):
+	if version >= 17:
+		return
+
+	try:
+		newlevels = get_or_create_node_and_parents(tree.getroot(), "Gui2/BriefView/Level")
+
+		nodes = tree.xpath("/Settings/Gui/BriefView/Level/*")
+		all_default = True
+		for node in nodes:
+			value = node.text
+			default = node.get("default")
+			if value != default:
+				all_default = False
+				break
+
+		if not all_default:
+			for node in nodes:
+				value = node.text
+				create_or_update_node(newlevels, node.tag, str(value), "s")
+
+		delete_from_tree(tree, "/Settings/Gui/BriefView/Level")
+
+	except Exception as e:
+		print(e)
+		pass
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -595,6 +636,7 @@ def migrate(localSettings, tree, version):
 	migrate_security_settings(localSettings, tree, version)
 	fix_broken_vrm_instance_tags(localSettings, tree, version)
 	migrate_dess_limits(localSettings, tree, version)
+	migrate_guiv2_brief_level(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
