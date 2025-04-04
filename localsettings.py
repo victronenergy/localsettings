@@ -174,9 +174,9 @@ class SettingObject(dbus.service.Object):
 		if v is None:
 			return DBUS_ERR
 
-		if self.min and v < self.min:
+		if hasattr(self, "min") and self.min is not None and v < self.min:
 			return DBUS_ERR
-		if self.max and v > self.max:
+		if hasattr(self, "max") and self.max is not None and v > self.max:
 			return DBUS_ERR
 
 		if v != self.value:
