@@ -903,12 +903,11 @@ class LocalSettings:
 		writeToXmlFile(self, self.settingsGroup, self.serial)
 
 	## Method for starting the time-out for saving to the settings-xml-file.
-	# (Re)Starts the time-out. When after x time no settings are changed,
+	# Starts the time-out. Changes during x time are collected before
 	# the settings-xml-file is saved.
 	def startTimeoutSaveSettings(self):
 		if self.timeoutSaveSettingsEventId is not None:
-			GLib.source_remove(self.timeoutSaveSettingsEventId)
-			self.timeoutSaveSettingsEventId = None
+			return
 		self.timeoutSaveSettingsEventId = GLib.timeout_add(self.timeoutSaveSettingsTime * 1000,
 														self.saveSettingsCallback)
 
