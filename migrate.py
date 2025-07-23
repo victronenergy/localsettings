@@ -584,7 +584,7 @@ def fix_broken_vrm_instance_tags(localsettings, tree, version):
 			parent.remove(node)
 
 def migrate_dess_limits(localSettings, tree, version):
-	if version >= 16:
+	if version >= 18:
 		return
 
 	dess = tree.getroot().find("DynamicEss")
