@@ -619,6 +619,19 @@ def migrate_guiv2_brief_level(localSettings, tree, version):
 		print(e)
 		pass
 
+def migrate_relay_manual_polarity(localSettings, tree, version):
+	if version >= 19:
+		return
+	# For all relays configured as manual, ensure that the polarity
+	# is unchanged. This is to avoid relays suddenly flipping logic
+	# when we start also using the polarity for the manual function.
+	for p in ("Relay", "Relay/_1"):
+		try:
+			if tree.xpath(f"string(/Settings/{p}/Function)") == "2":
+				tree.xpath(f"/Settings/{p}/Polarity")[0].text = "0"
+		except Exception as e:
+			print (e)
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -637,6 +650,7 @@ def migrate(localSettings, tree, version):
 	fix_broken_vrm_instance_tags(localSettings, tree, version)
 	migrate_dess_limits(localSettings, tree, version)
 	migrate_guiv2_brief_level(localSettings, tree, version)
+	migrate_relay_manual_polarity(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
