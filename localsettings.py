@@ -41,6 +41,7 @@ import logging
 from enum import IntEnum, unique
 import argparse
 from subprocess import check_output, CalledProcessError
+from functools import partial
 
 from gi.repository import GLib
 
@@ -897,8 +898,9 @@ class LocalSettings:
 
 	## The callback method for saving the settings-xml-file.
 	# Calls the parseDictionaryToXmlFile with the dictionary settings and settings-xml-filename.
-	def saveSettingsCallback(self):
-		GLib.source_remove(self.timeoutSaveSettingsEventId)
+	def writeToXml(self):
+		if self.timeoutSaveSettingsEventId:
+			GLib.source_remove(self.timeoutSaveSettingsEventId)
 		self.timeoutSaveSettingsEventId = None
 		writeToXmlFile(self, self.settingsGroup, self.serial)
 
@@ -909,7 +911,18 @@ class LocalSettings:
 		if self.timeoutSaveSettingsEventId is not None:
 			return
 		self.timeoutSaveSettingsEventId = GLib.timeout_add(self.timeoutSaveSettingsTime * 1000,
-														self.saveSettingsCallback)
+														self.writeToXml)
+
+	def hasPendingChanges(self):
+		return self.timeoutSaveSettingsEventId is not None
+
+def quit(mainloop):
+	mainloop.quit()
+
+def sig_handler(mainloop, signum, frame):
+	# Make sure the quit action is done after any pending events (meaning
+	# events that are already queued, not future timers).
+	GLib.idle_add(quit, mainloop)
 
 def main(argv):
 	global localSettings
@@ -943,6 +956,19 @@ def main(argv):
 	# Not migration actually, but it needs to go somewhere. It must run after loadSettingsDir.
 	migrate.check_security(localSettings)
 
-	GLib.MainLoop().run()
+	mainloop = GLib.MainLoop()
+
+	signal.signal(signal.SIGTERM, partial(sig_handler, mainloop))
+	signal.signal(signal.SIGINT, partial(sig_handler, mainloop))
+
+	mainloop.run()
+
+	logging.info("Mainloop has quit")
+	if localSettings.hasPendingChanges():
+		logging.info("There are pending changes; saving")
+		localSettings.writeToXml()
+	else:
+		logging.info("No pending changes to save")
+	logging.info("Quitting")
 
 main(sys.argv[1:])
