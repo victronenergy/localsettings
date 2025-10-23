@@ -634,6 +634,23 @@ def migrate_relay_manual_polarity(localSettings, tree, version):
 		except Exception as e:
 			print (e)
 
+
+def migrate_dess_targetsocs(localSettings, tree, version):
+	if version >= 20:
+		return
+
+	try:
+		socs = tree.getroot().xpath("/Settings/DynamicEss/Schedule/*/Soc")
+		for elem in socs:
+			parent = elem.getparent()
+			create_or_update_node(parent, "TargetSoc", elem.text, "f",
+				min=0.0, max=100.0, default=0.0, silent=False)
+			delete_from_tree(parent, "Soc")
+	except Exception:
+		# If there is an error, no problem. System will recover when a new
+		# schedule is sent.
+		pass
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -653,6 +670,7 @@ def migrate(localSettings, tree, version):
 	migrate_dess_limits(localSettings, tree, version)
 	migrate_guiv2_brief_level(localSettings, tree, version)
 	migrate_relay_manual_polarity(localSettings, tree, version)
+	migrate_dess_targetsocs(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
