@@ -104,6 +104,9 @@ class LocalSettingsTest(unittest.TestCase):
 		testsets['float-re-add-other-min-max'] = {'group': 'g', 'setting': 'f', 'default': 103.0, 'value': 103.0, 'type': 'f', 'min': 1.0, 'max': 1001.0}
 		# min / max is actually None, but the dbus specification has no representation for that, so 0 is used.
 		testsets['string'] = {'group': 'g', 'setting': 'string', 'default': "test", 'value': "test", 'type': 's', 'min': 0, 'max': 0}
+		testsets['string-array'] = {'group': 'g', 'setting': 'stringarray', 'default': ["one", "two", "three"], 'value': ["one", "two", "three"], 'type': 'as', 'min': 0, 'max': 0}
+		testsets['double-array'] = {'group': 'g', 'setting': 'doublearray', 'default': [1.1, 2.2, 3.3], 'value': [1.1, 2.2, 3.3], 'type': 'af', 'min': 0, 'max': 0}
+		testsets['int-array'] = {'group': 'g', 'setting': 'intarray', 'default': [1, 2, 3], 'value': [1, 2, 3], 'type': 'ai', 'min': 0, 'max': 0}
 
 		for name, details in testsets.items():
 			print ("\n\n===Testing %s===\n" % name)
@@ -216,7 +219,10 @@ class LocalSettingsTest(unittest.TestCase):
 			{'path': 'g/in', 'default': 200, '_value': 100},
 			{'path': 'g/in', 'default': 201, 'min': 10, 'max': 1000, '_value': 100},
 			{'path': 'g/f', 'default': 103.0, 'min': 1.0, 'max': 1001.0, '_value': 103.0},
-			{'path': 'g/string', 'default': "test", '_value': "test"}
+			{'path': 'g/string', 'default': "test", '_value': "test"},
+			{'path': 'g/stringarray', 'default': ["one", "two", "three"], '_value': ["one", "two", "three"]},
+			{'path': 'g/doublearray', 'default': [1.1, 2.2, 3.3], '_value': [1.1, 2.2, 3.3]},
+			{'path': 'g/intarray', 'default': [1, 2, 3], '_value': [1, 2, 3]},
 		]
 
 		# filter out the _value, that should be the result.

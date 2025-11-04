@@ -21,7 +21,7 @@ Parameters:
 - Setting name (can contain subpaths, for example display/brightness.
   /display/brightness will work as well and has the same effect)
 - Default value
-- Type ('i' - integer, 'f' - float, 's' - string)
+- Type ('i' - integer, 'f' - float, 's' - string, 'ai' - int array, 'af' - float array, 'as' - string array)
 - Min value
 - Max value
 
@@ -93,21 +93,24 @@ wasn't passed). The actual value is returned when no error occured.
 Commandline examples:
 
 ```
-dbus com.victronenergy.settings / AddSettings \
-'%[{"path": "/Settings/Test", "default": 5}, {"path": "/Settings/Float", "default": 5.0}]'
+dbus -y com.victronenergy.settings / AddSettings \
+'%[{"path": "/Settings/Test", "default": 5}, {"path": "/Settings/Float", "default": 5.0}, {"path": "/Settings/FloatArray", "default": [1.1,2.2]}]'
 
-[{'error': 0, 'path': '/Settings/Test', 'value': 1},
- {'error': 0, 'path': '/Settings/Float', 'value': 5.0}]
+[{'error': 0, 'path': '/Settings/Test', 'value': 5},
+ {'error': 0, 'path': '/Settings/Float', 'value': 5.0},
+ {'error': 0, 'path': '/Settings/FloatArray', 'value': [1.1, 2.2]}]
 ```
 
 or on /Settings:
 
 ```
-dbus com.victronenergy.settings /Settings AddSettings \
-'%[{"path": "Test", "default": 5}, {"path": "Float", "default": 5.0}]'
+dbus -y com.victronenergy.settings /Settings AddSettings \
+'%[{"path": "Test", "default": 5}, {"path": "Float", "default": 5.0}, {"path": "IntArray", "default": [1,2]}, {"path": "StringArray", "default": ["string 1", "string 2"]}]'
 
-[{'error': 0, 'path': 'Test', 'value': 1},
- {'error': 0, 'path': 'Float', 'value': 5.0}]
+[{'error': 0, 'path': 'Test', 'value': 5},
+ {'error': 0, 'path': 'Float', 'value': 5.0},
+ {'error': 0, 'path': 'IntArray', 'value': [1, 2]},
+ {'error': 0, 'path': 'StringArray', 'value': ['string 1', 'string 2']}]
 ```
 
 ##### Using AddSettings to allocate Vrm Device Instances
@@ -117,7 +120,7 @@ has the additional advantage that the allocated instance number is returned
 to the application immediately, making an additional GetValue call unnecessary.
 
 ```
-dbus com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "a/ClassAndVrmInstance", "default": "battery:1"}, {"path": "b/ClassAndVrmInstance", "default": "battery:1"}]'
+dbus -y com.victronenergy.settings /Settings/Devices AddSettings '%[{"path": "a/ClassAndVrmInstance", "default": "battery:1"}, {"path": "b/ClassAndVrmInstance", "default": "battery:1"}]'
 [{'error': 0, 'path': 'a/ClassAndVrmInstance', 'value': 'battery:1'},
  {'error': 0, 'path': 'b/ClassAndVrmInstance', 'value': 'battery:2'}]
 ```
@@ -171,7 +174,7 @@ exists, and will not overwrite an existing value. Example with commandline tool:
 4. dbus com.victronenergy.settings /Settings AddSettings \
 '%[{"path": "Int", "default": 5}, {"path": "Float", "default": 5.0}, {"path": "String", "default": "string"}]'
 
-5. dbus com.victronenergy.settings /Settings RemoveSettings '%["Int", "Float", "String"]'
+5. dbus -y com.victronenergy.settings /Settings RemoveSettings '%["Int", "Float", "String"]'
 
 Obviously you won't be calling dbus -y everytime, but implement some straight dbus
 interface in your code. Below are some examples for different languages.

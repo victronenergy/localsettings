@@ -56,11 +56,22 @@ version = (FIRMWARE_VERSION_MAJOR << 8) | FIRMWARE_VERSION_MINOR
 InterfaceBusItem = 'com.victronenergy.BusItem'
 InterfaceSettings = 'com.victronenergy.Settings'
 
+def parse_array_type_from_string(typ, s):
+	# Remove the extra quotes, used for parsing the 'default' attribute from XML
+	s = s.strip('"')
+	if s.startswith('[') and s.endswith(']'):
+		s = s[1:-1]
+	items = [typ(item.strip().strip('\'')) for item in s.split(',')]
+	return items
+
 ## Supported types for convert xml-text to value.
 supportedTypes = {
 	'i': int,
 	's': str,
 	'f': float,
+	'ai': lambda x: parse_array_type_from_string(int, x) if isinstance(x, str) else list([int(y) for y in x]),
+	'as': lambda x: parse_array_type_from_string(str, x) if isinstance(x, str) else list([str(y) for y in x]),
+	'af': lambda x: parse_array_type_from_string(float, x) if isinstance(x, str) else list([float(y) for y in x])
 }
 
 DBUS_OK = dbus.types.Int32(0)
@@ -432,7 +443,7 @@ class GroupObject(dbus.service.Object):
 		min = convertToType(itemType, minimum)
 		max = convertToType(itemType, maximum)
 
-		if not isinstance(value, str):
+		if not isinstance(value, (str, list)):
 			if min == 0 and max == 0:
 				min = None
 				max = None
@@ -504,6 +515,17 @@ class GroupObject(dbus.service.Object):
 				typeName = "f"
 			elif isinstance(default, dbus.String):
 				typeName = "s"
+			elif isinstance(default, dbus.Array):
+				# Determine array type
+				if len(default) == 0 or all(isinstance(x, (dbus.Int32, dbus.Int64)) for x in default):
+					typeName = "ai"
+				elif all(isinstance(x, (dbus.String)) for x in default):
+					typeName = "as"
+				elif all(isinstance(x, (dbus.Double)) for x in default):
+					typeName = "af"
+				else:
+					result["error"] = AddSettingError.UnknownType
+					continue
 			else:
 				result["error"] = AddSettingError.UnknownType
 				continue
@@ -658,7 +680,10 @@ def dbus_wrap(typ, value):
 		return {
 			'i': _int,
 			's': dbus.types.String,
-			'f': dbus.types.Double
+			'f': dbus.types.Double,
+			'ai': lambda x: dbus.Array([_int(y) for y in x]),
+			'as': lambda x: dbus.Array([dbus.types.String(y) for y in x]),
+			'af': lambda x: dbus.Array([dbus.types.Double(y) for y in x])
 		}[typ](value)
 	except KeyError:
 		return None
@@ -749,7 +774,7 @@ def loadSettingsFile(name, settingsGroup):
 
 			defVal = convertToType(itemType, defVal)
 
-			if not isinstance(defVal, str):
+			if not isinstance(defVal, (str, list)):
 				minVal = convertToType(itemType, minVal)
 				maxVal = convertToType(itemType, maxVal)
 
