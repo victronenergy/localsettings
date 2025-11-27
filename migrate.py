@@ -24,12 +24,14 @@ def delete_from_tree(tree, path):
 		return
 	obj[0].getparent().remove(obj[0])
 
-def create_or_update_node(parent, tag, value, type = "i"):
+def create_or_update_node(parent, tag, value, type = "i", **kwargs):
 	child = parent.find(tag)
 	if child is None:
 		child = etree.SubElement(parent, tag)
 	child.text = str(value)
 	child.set("type", type)
+	for k, v in kwargs.items():
+		child.set(k, str(v))
 
 def create_node(parent, tag, value, type = "i"):
 	child = parent.find(tag)
