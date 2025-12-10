@@ -42,6 +42,8 @@ from enum import IntEnum, unique
 import argparse
 from subprocess import check_output, CalledProcessError
 from functools import partial
+import psutil
+from dbus.lowlevel import MethodCallMessage
 
 from gi.repository import GLib
 
@@ -164,13 +166,45 @@ class SettingObject(dbus.service.Object):
 	def GetText(self):
 		return dbus.types.String(self.value)
 
+	def getPid(self, sender):
+		try:
+			# NOTE: in general it is not a good idea to make these kind
+			# of blocking dbus calls. This asks the dbus daemon though,
+			# not a service with is potentially blocking on this service.
+			msg = MethodCallMessage(destination="org.freedesktop.DBus",
+									path="/",
+									interface="org.freedesktop.DBus",
+									method="GetConnectionUnixProcessID",
+									)
+			msg.append(sender, signature="s")
+			reply = self.connection.send_message_with_reply_and_block(msg)
+			args = reply.get_args_list()
+			if (len(args) >= 1):
+				return args[0]
+			return -1
+		except:
+			return -1
+
 	## Dbus method SetValue
 	# Sets the value of a setting. When the type of the setting is a integer or float,
 	# the new value is checked according to minimum and maximum.
 	# @param value The new value for the setting.
 	# @return completion-code When successful a 0 is return, and when not a -1 is returned.
-	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i')
-	def SetValue(self, value):
+	@dbus.service.method(InterfaceBusItem, in_signature = 'v', out_signature = 'i', sender_keyword='sender')
+	def SetValue(self, value, sender):
+
+		# The venus-platform api must be used to change the SecurityProfile
+		if self._object_path == "/Settings/System/SecurityProfile":
+			pid = self.getPid(sender)
+			if pid < 0:
+				print("could not find the pid for " + sender)
+				return DBUS_ERR
+
+			p = psutil.Process(pid)
+			if p.name() != "venus-platform":
+				print("disallowing Security Profile change from " + str(p.cmdline()))
+				return DBUS_ERR
+
 		v = convertToType(self.type, value)
 		if v is None:
 			return DBUS_ERR
