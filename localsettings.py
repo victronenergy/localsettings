@@ -278,11 +278,11 @@ class SettingObject(dbus.service.Object):
 			return DBUS_ERR
 		return dbus_wrap(self.type, self.default)
 
-	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
-	def SetDefault(self):
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i', sender_keyword='sender')
+	def SetDefault(self, sender):
 		if self.default is None:
 			return DBUS_ERR
-		self.SetValue(self.default)
+		self.SetValue(self.default, sender)
 		return DBUS_OK
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
