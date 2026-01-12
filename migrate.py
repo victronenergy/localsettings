@@ -683,10 +683,10 @@ def check_security(localSettings):
 				return
 
 			if not os.path.exists("/dev/fb0") or os.path.exists("/etc/venus/no-factory-password"):
-				securityProfile.SetValue(SECURITY_PROFILE_UNSECURED)
+				securityProfile._setValue(SECURITY_PROFILE_UNSECURED)
 				create_empty_password_file()
 			else:
-				securityProfile.SetValue(SECURITY_PROFILE_INDETERMINATE)
+				securityProfile._setValue(SECURITY_PROFILE_INDETERMINATE)
 
 	except:
 		print("check_security: failed")
