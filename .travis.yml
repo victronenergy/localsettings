@@ -6,7 +6,7 @@ python:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install libdbus-1-dev libgirepository1.0-dev
+  - sudo apt-get install libdbus-1-dev libgirepository1.0-dev python3-psutil
 
 install:
   - pip3 install dbus-python PyGObject lxml
