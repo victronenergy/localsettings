@@ -6,10 +6,10 @@ python:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install libdbus-1-dev libgirepository1.0-dev python3-psutil
+  - sudo apt-get install libdbus-1-dev libgirepository1.0-dev
 
 install:
-  - pip3 install dbus-python PyGObject lxml
+  - pip3 install dbus-python PyGObject lxml psutil
 
 script:
   - dbus-launch test/test_localsettings.py
