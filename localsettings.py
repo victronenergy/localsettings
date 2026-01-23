@@ -94,10 +94,10 @@ class SettingObject(dbus.service.Object):
 	## Constructor of SettingObject
 	#
 	# Creates the dbus-object under the given bus-name (dbus-service-name).
-	# @param busName Return value from dbus.service.BusName, see run()).
+	# @param dbusConnection Return value from e.g. dbus.SessionBus().
 	# @param objectPath The dbus-object-path (e.g. '/Settings/Logging/LogInterval').
-	def __init__(self, busName, objectPath):
-		dbus.service.Object.__init__(self, busName, objectPath)
+	def __init__(self, conn, objectPath):
+		dbus.service.Object.__init__(self, conn=conn, object_path=objectPath)
 		self.group = None
 		self.value = None
 		self.min = None
@@ -291,12 +291,11 @@ class SettingObject(dbus.service.Object):
 			dbus.types.Int32(self.silent))
 
 class GroupObject(dbus.service.Object):
-	def __init__(self, busname, path, parent, removable = True):
-		dbus.service.Object.__init__(self, busname, path)
+	def __init__(self, conn, path, parent, removable = True):
+		dbus.service.Object.__init__(self, conn=conn, object_path=path)
 		self._parent = parent
 		self._children = {}
 		self._settings = {}
-		self._busName = busname
 		self._removable = removable
 
 	def toXml(self, element):
@@ -337,10 +336,10 @@ class GroupObject(dbus.service.Object):
 
 	# just to make it easy to overload
 	def _newSubGroup(self, path):
-		return GroupObject(self._busName, path, self)
+		return GroupObject(self.connection, path, self)
 
 	def _newSettingObject(self, tag):
-		return SettingObject(self._busName, self._object_path + "/" + tag)
+		return SettingObject(self.connection, self._object_path + "/" + tag)
 
 	def createGroupsFromList(self, list):
 		if not list:
@@ -593,8 +592,8 @@ class GroupObject(dbus.service.Object):
 		return DBUS_OK
 
 class RootObject(GroupObject):
-	def __init__(self, busname, path, parent, removable = True):
-		super(RootObject, self).__init__(busname, path, parent, removable)
+	def __init__(self, conn, path, parent, removable = True):
+		super(RootObject, self).__init__(conn, path, parent, removable)
 
 	@dbus.service.method(InterfaceBusItem, out_signature = 'a{sa{sv}}')
 	def GetItems(self):
@@ -631,8 +630,8 @@ class ClassAndVrmInstance(SettingObject):
 class DeviceGroup(GroupObject):
 	def _newSettingObject(self, tag):
 		if tag == "ClassAndVrmInstance":
-			return ClassAndVrmInstance(self._busName, self._object_path + "/" + tag)
-		return SettingObject(self._busName, self._object_path + "/" + tag)
+			return ClassAndVrmInstance(self.connection, self._object_path + "/" + tag)
+		return SettingObject(self.connection, self._object_path + "/" + tag)
 
 # Assure unique instances per class. The value of ClassAndVrmInstance is e.g.
 # battery:1 / battery:2 etc. The instances are stored under per device unique
@@ -645,7 +644,7 @@ class DeviceGroup(GroupObject):
 # taken, it will be set to the next free one.
 class DevicesGroup(GroupObject):
 	def _newSubGroup(self, path):
-		return DeviceGroup(self._busName, path, self)
+		return DeviceGroup(self.connection, path, self)
 
 	# Make sure classInstanceStr is updated to a free one.
 	# returns False if the string cannot be parsed.
@@ -901,15 +900,17 @@ class LocalSettings:
 			logging.warning('Created settings file %s' % self.fileSettings)
 
 		# connect to the SessionBus if there is one. System otherwise
-		bus = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
-		busName = dbus.service.BusName(self.dbusName, bus)
-
-		self.rootGroup = RootObject(busName, "/", None, removable = False)
+		self.dbusConn = dbus.SessionBus() if 'DBUS_SESSION_BUS_ADDRESS' in environ else dbus.SystemBus()
+		self.rootGroup = RootObject(self.dbusConn, "/", None, removable = False)
 		self.settingsGroup = self.rootGroup.createGroups("/Settings")
 		self.settingsGroup._removable = False
-		devices = DevicesGroup(busName, "/Settings/Devices", self.settingsGroup, removable = False)
+		devices = DevicesGroup(self.dbusConn, "/Settings/Devices", self.settingsGroup, removable = False)
 		self.settingsGroup.addGroup("Devices", devices)
 		parseXmlFile(self.fileSettings, self.rootGroup)
+
+	def claimDbusName(self):
+		print("claiming " + self.dbusName)
+		self.dbusConn.request_name(self.dbusName, flags=dbus.bus.NAME_FLAG_DO_NOT_QUEUE)
 
 	def save(self, tree):
 
@@ -994,6 +995,8 @@ def main(argv):
 
 	signal.signal(signal.SIGTERM, partial(sig_handler, mainloop))
 	signal.signal(signal.SIGINT, partial(sig_handler, mainloop))
+
+	localSettings.claimDbusName()
 
 	mainloop.run()
 
