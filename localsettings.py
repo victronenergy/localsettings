@@ -263,7 +263,9 @@ class SettingObject(dbus.service.Object):
 		text = self.GetText()
 		change = {'Value': value, 'Text': text}
 		if sendAttributes:
-			change.update({'Min': self.GetMin(), 'Max': self.GetMax(), 'Default': self.GetDefault()})
+			change.update({'Default': self.GetDefault()})
+			if self.type != 's':
+				change.update({'Min': self.GetMin(), 'Max': self.GetMax()})
 		self.PropertiesChanged(change)
 
 		return True
