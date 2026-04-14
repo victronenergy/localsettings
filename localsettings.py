@@ -201,7 +201,9 @@ class SettingObject(dbus.service.Object):
 				return DBUS_ERR
 
 			p = psutil.Process(pid)
-			if p.name() != "venus-platform":
+			cmd = p.cmdline()
+			is_reset = len(cmd) >= 2 and cmd[0] == "/usr/bin/python3" and cmd[-1] == "/opt/victronenergy/venus-button-handler/network-reset"
+			if p.name() != "venus-platform" and not is_reset:
 				print("disallowing Security Profile change from " + str(p.cmdline()))
 				return DBUS_ERR
 
