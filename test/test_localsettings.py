@@ -29,10 +29,11 @@ class LocalSettingsTest(unittest.TestCase):
 			os.makedirs(self._dataDir)
 		self._settingsFile = self._dataDir + '/settings.xml'
 		# Always start with a fresh and running instance of localsettings
-		try:
-			os.remove(self._settingsFile)
-		except OSError:
-			pass
+		for f in (self._settingsFile, self._settingsFile + '.invalid'):
+			try:
+				os.remove(f)
+			except OSError:
+				pass
 
 		self._dbus = dbus.SystemBus() if (platform.machine() == 'armv7l') else dbus.SessionBus()
 		self._dbus.add_signal_receiver(self.dbus_name_owner_changed, signal_name='NameOwnerChanged')
@@ -310,6 +311,38 @@ class LocalSettingsTest(unittest.TestCase):
 		self.set_value("Devices/a/ClassAndVrmInstance", "tank:1")
 		self.assertEqual(self.get_value("Devices/a/ClassAndVrmInstance"), "tank:1")
 		self.assertEqual(self.get_default("Devices/a/ClassAndVrmInstance"), "battery:1")
+
+	def _restartWithSettingsFile(self, content):
+		self._stopLocalSettings()
+		with open(self._settingsFile, 'w') as f:
+			f.write(content)
+		self._startLocalSettings()
+
+	def test_failing_migration_keeps_settings(self):
+		print("\n===Testing a failing migration keeps the settings ===\n")
+		self._restartWithSettingsFile(
+			'<?xml version="1.0" encoding="UTF-8"?>\n'
+			'<Settings version="13">\n'
+			'  <System>\n'
+			'    <TimeZone type="s" default="UTC">Europe/Amsterdam</TimeZone>\n'
+			'    <VncLocal type="i" default="0"/>\n'
+			'  </System>\n'
+			'  <g>\n'
+			'    <i type="i" default="0">42</i>\n'
+			'  </g>\n'
+			'</Settings>\n')
+
+		self.assertEqual(self.get_value("System/TimeZone"), "Europe/Amsterdam")
+		self.assertEqual(self.get_value("g/i"), 42)
+
+	def test_invalid_settings_file_is_kept(self):
+		print("\n===Testing an invalid settings file is kept ===\n")
+		content = '<?xml version="1.0" encoding="UTF-8"?>\n<Settings version="19">\n  <g>\n'
+		self._restartWithSettingsFile(content)
+
+		with open(self._settingsFile + '.invalid') as f:
+			self.assertEqual(f.read(), content)
+		self.assertEqual(0, self._add_setting('g', 's', 0, 'i', 0, 0))
 
 	def _startLocalSettings(self):
 		self._isUp = False

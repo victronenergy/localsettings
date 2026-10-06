@@ -640,25 +640,32 @@ def migrate_ol_delete_orphan_settings(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/OpportunityLoads/EnableDebugLogging")
 
 def migrate(localSettings, tree, version):
-	migrate_can_profile(localSettings, tree, version)
-	migrate_remote_support(localSettings, tree, version)
-	migrate_mqtt(localSettings, tree, version)
-	migrate_remotesupport2(localSettings, tree, version)
-	migrate_adc(localSettings, tree, version)
-	migrate_fronius_deviceinstance(localSettings, tree, version)
-	migrate_fixup_cgwacs(localSettings, tree, version)
-	migrate_cgwacs_deviceinstance(localSettings, tree, version)
-	migrate_adc_settings(localSettings, tree, version)
-	migrate_fischerpanda_autostart(localSettings, tree, version)
-	migrate_fischerpanda_to_generic_genset(localSettings, tree, version)
-	migrate_analog_sensors_classes(localSettings, tree, version)
-	migrate_vedirect_classes(localSettings, tree, version)
-	migrate_security_settings(localSettings, tree, version)
-	fix_broken_vrm_instance_tags(localSettings, tree, version)
-	migrate_dess_limits(localSettings, tree, version)
-	migrate_guiv2_brief_level(localSettings, tree, version)
-	migrate_relay_manual_polarity(localSettings, tree, version)
-	migrate_ol_delete_orphan_settings(localSettings, tree, version)
+	for step in (
+			migrate_can_profile,
+			migrate_remote_support,
+			migrate_mqtt,
+			migrate_remotesupport2,
+			migrate_adc,
+			migrate_fronius_deviceinstance,
+			migrate_fixup_cgwacs,
+			migrate_cgwacs_deviceinstance,
+			migrate_adc_settings,
+			migrate_fischerpanda_autostart,
+			migrate_fischerpanda_to_generic_genset,
+			migrate_analog_sensors_classes,
+			migrate_vedirect_classes,
+			migrate_security_settings,
+			fix_broken_vrm_instance_tags,
+			migrate_dess_limits,
+			migrate_guiv2_brief_level,
+			migrate_relay_manual_polarity,
+			migrate_ol_delete_orphan_settings,
+		):
+		# A failing step must not take the other settings with it.
+		try:
+			step(localSettings, tree, version)
+		except Exception as e:
+			print("migration " + step.__name__ + " failed: " + str(e))
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
