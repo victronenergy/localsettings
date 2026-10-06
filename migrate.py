@@ -495,8 +495,12 @@ def migrate_security_settings(localsettings, tree, version):
 	delete_from_tree(tree, '/Settings/Services/MqttVrm')
 
 	# Set Security Profile for Remote Console on LAN
-	node = tree.xpath("/Settings/System/VncLocal")
-	if node and int(node[0].text) == 1:
+	try:
+		vncLocal = int(tree.xpath("string(/Settings/System/VncLocal)")) == 1
+	except ValueError:
+		vncLocal = False
+
+	if vncLocal:
 		if passwordSet:
 			securityProfile = SECURITY_PROFILE_WEAK
 		else:

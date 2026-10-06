@@ -335,6 +335,22 @@ class LocalSettingsTest(unittest.TestCase):
 		self.assertEqual(self.get_value("System/TimeZone"), "Europe/Amsterdam")
 		self.assertEqual(self.get_value("g/i"), 42)
 
+	def test_empty_vnclocal_is_migrated(self):
+		print("\n===Testing an empty VncLocal is migrated ===\n")
+		self._restartWithSettingsFile(
+			'<?xml version="1.0" encoding="UTF-8"?>\n'
+			'<Settings version="13">\n'
+			'  <System>\n'
+			'    <VncLocal type="i" default="0"/>\n'
+			'  </System>\n'
+			'  <Vrmlogger>\n'
+			'    <Logmode type="i" default="1">0</Logmode>\n'
+			'  </Vrmlogger>\n'
+			'</Settings>\n')
+
+		self.assertEqual(self.get_value("Network/VrmPortal"), 0)
+		self.assertEqual(self.get_value("System/SecurityProfile"), 3)
+
 	def test_invalid_settings_file_is_kept(self):
 		print("\n===Testing an invalid settings file is kept ===\n")
 		content = '<?xml version="1.0" encoding="UTF-8"?>\n<Settings version="19">\n  <g>\n'
