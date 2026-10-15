@@ -632,6 +632,13 @@ def migrate_relay_manual_polarity(localSettings, tree, version):
 		except Exception as e:
 			print (e)
 
+def migrate_ol_delete_orphan_settings(localSettings, tree, version):
+	if version >= 20:
+		return
+
+	delete_from_tree(tree, "/Settings/OpportunityLoads/BatteryReservationEquation")
+	delete_from_tree(tree, "/Settings/OpportunityLoads/EnableDebugLogging")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -651,6 +658,7 @@ def migrate(localSettings, tree, version):
 	migrate_dess_limits(localSettings, tree, version)
 	migrate_guiv2_brief_level(localSettings, tree, version)
 	migrate_relay_manual_polarity(localSettings, tree, version)
+	migrate_ol_delete_orphan_settings(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
