@@ -71,7 +71,7 @@ DBUS_ERR = dbus.types.Int32(-1)
 ## Settings file version tag, encoding and root-element.
 settingsTag = 'version'
 uniqueIdTag = 'unique-id'
-settingsVersion = '20'
+settingsVersion = '21'
 settingsEncoding = 'UTF-8'
 settingsRootName = 'Settings'
 

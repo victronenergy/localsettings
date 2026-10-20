@@ -639,6 +639,15 @@ def migrate_ol_delete_orphan_settings(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/OpportunityLoads/BatteryReservationEquation")
 	delete_from_tree(tree, "/Settings/OpportunityLoads/EnableDebugLogging")
 
+def migrate_cgwacs_phasecount(localSettings, tree, version):
+	if version >= 21:
+		return
+	# IsMultiphase was replaced by PhaseCount (1, 2 = split phase, 3). Keep
+	# IsMultiphase around so a downgrade still works.
+	for dev in tree.xpath("/Settings/Devices/*[starts-with(name(), 'cgwacs_')][IsMultiphase]"):
+		mp = dev.xpath("string(IsMultiphase)")
+		create_node(dev, "PhaseCount", 3 if mp == "1" else 1, "i")
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -659,6 +668,7 @@ def migrate(localSettings, tree, version):
 	migrate_guiv2_brief_level(localSettings, tree, version)
 	migrate_relay_manual_polarity(localSettings, tree, version)
 	migrate_ol_delete_orphan_settings(localSettings, tree, version)
+	migrate_cgwacs_phasecount(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
