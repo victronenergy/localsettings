@@ -826,6 +826,7 @@ class LocalSettings:
 	fileSettings = 'settings.xml'
 	newFileExtension = '.new'
 	importFileExtension = '.import'
+	invalidFileExtension = '.invalid'
 	sysSettingsDir = '/etc/venus/settings.d'
 
 	def __init__(self, pathSettings, timeoutSaveSettingsTime):
@@ -833,6 +834,7 @@ class LocalSettings:
 		self.fileSettings = pathSettings + self.fileSettings
 		self.newFileSettings = self.fileSettings + self.newFileExtension
 		self.importFileSettings = self.fileSettings + self.importFileExtension
+		self.invalidFileSettings = self.fileSettings + self.invalidFileExtension
 		self.timeoutSaveSettingsTime = timeoutSaveSettingsTime
 		self.timeoutSaveSettingsEventId = None
 		self.rootGroup = None
@@ -876,7 +878,12 @@ class LocalSettings:
 				# major part.
 				loadedVersionTxt = tree.xpath("string(/Settings/@version)") or "1"
 				loadedVersion = [int(i) for i in loadedVersionTxt.split('.')][0]
-
+			except Exception as e:
+				print(e)
+				logging.error('Settings file %s invalid' % self.fileSettings)
+				rename(self.fileSettings, self.invalidFileSettings)
+				logging.error('%s moved to %s' % (self.fileSettings, self.invalidFileSettings))
+			else:
 				migrate.migrate(self, tree, loadedVersion)
 
 				logging.info('Settings file %s validated' % self.fileSettings)
@@ -886,12 +893,6 @@ class LocalSettings:
 					root.set(settingsTag, settingsVersion)
 					root.set(uniqueIdTag, self.serial)
 					self.save(tree)
-
-			except Exception as e:
-				print(e)
-				logging.error('Settings file %s invalid' % self.fileSettings)
-				remove(self.fileSettings)
-				logging.error('%s removed' % self.fileSettings)
 
 		# check if settings file is present, if not exit create a "empty" settings file.
 		if not path.isfile(self.fileSettings):
