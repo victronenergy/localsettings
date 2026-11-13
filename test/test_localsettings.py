@@ -52,6 +52,27 @@ class LocalSettingsTest(unittest.TestCase):
 				return
 			time.sleep(0.01)
 
+	def test_signed_64_bit_settings(self):
+		values = (-2**63, -2**31 - 1, -2**31, 2**31 - 1, 2**31, 2**63 - 1)
+		for index, value in enumerate(values):
+			with self.subTest(value=value):
+				setting_path = 'IntegerBounds/Value' + str(index)
+				result = self._add_settings([{
+					'path': setting_path, 'default': dbus.Int64(value),
+					'min': dbus.Int64(-2**63), 'max': dbus.Int64(2**63 - 1)
+				}])
+				self.assertEqual(result[0]['error'], 0)
+				self.assertEqual(result[0]['value'], value)
+				self.assertEqual(self.get_value(setting_path), value)
+				self.assertEqual(self.get_default(setting_path), value)
+				item = self._get_items()['/Settings/' + setting_path]
+				self.assertEqual(item['Value'], value)
+				self.assertEqual(item['Min'], -2**63)
+				self.assertEqual(item['Max'], 2**63 - 1)
+				changed_value = values[-index - 1]
+				self.assertEqual(self.set_value(setting_path, dbus.Int64(changed_value)), 0)
+				self.assertEqual(self.get_value(setting_path), changed_value)
+
 	def test_adding_new_setting_creates_signal(self):
 		self.add_new_setting_creates_signal('AddSetting')
 
