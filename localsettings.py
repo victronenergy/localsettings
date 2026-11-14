@@ -261,7 +261,7 @@ class SettingObject(dbus.service.Object):
 		self.value = value
 		localSettings.startTimeoutSaveSettings()
 		text = self.GetText()
-		change = {'Value': value, 'Text': text}
+		change = {'Value': dbus_wrap(self.type, value), 'Text': text}
 		if sendAttributes:
 			change.update({'Default': self.GetDefault()})
 			if self.type != 's':
@@ -686,7 +686,7 @@ def convertToType(type, value):
 def _int(x):
 	""" 64-bit aware conversion. """
 	x = int(x)
-	return dbus.types.Int64(x) if x > 0x7FFFFFFF else dbus.types.Int32(x)
+	return dbus.types.Int32(x) if -0x80000000 <= x <= 0x7FFFFFFF else dbus.types.Int64(x)
 
 def dbus_wrap(typ, value):
 	if value is None:
