@@ -349,6 +349,8 @@ class GroupObject(dbus.service.Object):
 		if not list:
 			return self
 		subgroup = list.pop(0)
+		if subgroup in self._settings:
+			return None
 		if subgroup not in self._children:
 			path = self._path() + "/" + subgroup
 			self._children[subgroup] = self._newSubGroup(path)
@@ -495,6 +497,8 @@ class GroupObject(dbus.service.Object):
 				return AddSettingError.IsGroup, None
 
 			settingObject = self.createSettingObjectAndGroups(relativePath)
+			if settingObject is None:
+				return AddSettingError.InvalidPath, None
 			settingObject.setAttributes(defaultValue, itemType, min, max, silent)
 		else:
 			# Existing setting
