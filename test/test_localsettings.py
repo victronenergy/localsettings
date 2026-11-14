@@ -52,6 +52,20 @@ class LocalSettingsTest(unittest.TestCase):
 				return
 			time.sleep(0.01)
 
+	def test_setting_cannot_be_used_as_parent_in_batch(self):
+		self.assertEqual(self._add_settings([{'path': 'parent', 'default': 10}])[0]['error'], 0)
+		result = self._add_settings([
+			{'path': 'parent/child', 'default': 20},
+			{'path': 'sibling/child', 'default': 30}])
+		self.assertEqual([item['error'] for item in result], [-4, 0])
+		self.assertEqual(self.get_value('parent'), 10)
+		self.assertEqual(self.get_value('sibling/child'), 30)
+
+	def test_setting_cannot_be_used_as_parent_in_legacy_api(self):
+		self.assertEqual(self._add_setting('group', 'parent', 10, 'i', 0, 0), 0)
+		self.assertEqual(self._add_setting('group/parent', 'child', 20, 'i', 0, 0), -4)
+		self.assertEqual(self.get_value('group/parent'), 10)
+
 	def test_adding_new_setting_creates_signal(self):
 		self.add_new_setting_creates_signal('AddSetting')
 
