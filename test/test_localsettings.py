@@ -52,6 +52,21 @@ class LocalSettingsTest(unittest.TestCase):
 				return
 			time.sleep(0.01)
 
+	def test_group_reset_restores_nested_defaults(self):
+		self.assertEqual(self._add_setting('reset', 'one', 5, 'i', 0, 20), 0)
+		self.assertEqual(self._add_setting('reset/nested', 'two', 6, 'i', 0, 20), 0)
+		for path in ('reset/one', 'reset/nested/two'):
+			item = self._dbus.get_object('com.victronenergy.settings', '/Settings/' + path)
+			self.assertEqual(item.get_dbus_method('SetValue',
+				dbus_interface='com.victronenergy.BusItem')(12), 0)
+		group = self._dbus.get_object('com.victronenergy.settings', '/Settings/reset')
+		self.assertEqual(group.get_dbus_method('SetDefault',
+			dbus_interface='com.victronenergy.BusItem')(), 0)
+		for path, value in (('reset/one', 5), ('reset/nested/two', 6)):
+			item = self._dbus.get_object('com.victronenergy.settings', '/Settings/' + path)
+			self.assertEqual(item.get_dbus_method('GetValue',
+				dbus_interface='com.victronenergy.BusItem')(), value)
+
 	def test_adding_new_setting_creates_signal(self):
 		self.add_new_setting_creates_signal('AddSetting')
 
