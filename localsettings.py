@@ -286,8 +286,7 @@ class SettingObject(dbus.service.Object):
 	def SetDefault(self, sender):
 		if self.default is None:
 			return DBUS_ERR
-		self.SetValue(self.default, sender)
-		return DBUS_OK
+		return self.SetValue(self.default, sender)
 
 	@dbus.service.method(InterfaceSettings, out_signature = 'vvvi')
 	def GetAttributes(self):
@@ -590,9 +589,9 @@ class GroupObject(dbus.service.Object):
 	def GetText(self):
 		return self.forAllSettings(lambda x: x.GetText(), 's')
 
-	@dbus.service.method(InterfaceBusItem, out_signature = 'i')
-	def SetDefault(self):
-		self.forAllSettings(lambda x: x.SetDefault())
+	@dbus.service.method(InterfaceBusItem, out_signature = 'i', sender_keyword='sender')
+	def SetDefault(self, sender):
+		self.forAllSettings(lambda x: x.SetDefault(sender))
 		return DBUS_OK
 
 class RootObject(GroupObject):
@@ -626,7 +625,7 @@ class ClassAndVrmInstance(SettingObject):
 
 		return super().setAttributes(default, type, min, max, silent)
 
-	def SetDefault(self):
+	def SetDefault(self, sender=None):
 		return DBUS_ERR
 
 ## Unique VRM instances
