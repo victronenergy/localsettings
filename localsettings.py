@@ -701,7 +701,7 @@ def dbus_wrap(typ, value):
 		return None
 
 def parseXmlFile(file, items):
-	parser = etree.XMLParser(remove_blank_text=True)
+	parser = etree.XMLParser(remove_blank_text=True, remove_comments=True)
 	tree = etree.parse(file, parser)
 	root = tree.getroot()
 	parseXmlEntry(root, items)
