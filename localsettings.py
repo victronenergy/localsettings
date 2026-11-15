@@ -791,7 +791,8 @@ def loadSettingsFile(name, settingsGroup):
 				maxVal = convertToType(itemType, maxVal)
 
 				if minVal or maxVal:
-					if defVal < minVal or defVal > maxVal:
+					if ((minVal is not None and defVal < minVal) or
+							(maxVal is not None and defVal > maxVal)):
 						raise Exception('default value out of range')
 
 			silent = toBool(silent)
