@@ -639,6 +639,19 @@ def migrate_ol_delete_orphan_settings(localSettings, tree, version):
 	delete_from_tree(tree, "/Settings/OpportunityLoads/BatteryReservationEquation")
 	delete_from_tree(tree, "/Settings/OpportunityLoads/EnableDebugLogging")
 
+def migrate_shelly_disable_by_default(localSettings, tree, version):
+	if version >= 21:
+		return
+
+	# The Shelly service becomes disabled by default. Keep it enabled only
+	# when a channel of a Shelly is enabled.
+	if tree.xpath("/Settings/Devices/*[starts-with(name(), 'shelly_')]/*/Enabled[text() = '1']"):
+		services = get_or_create_node_and_parents(tree.getroot(), "Services")
+		create_node(services, "Shelly", 1)
+	else:
+		for node in tree.xpath("/Settings/Services/Shelly[text() = '1']"):
+			node.text = "0"
+
 def migrate(localSettings, tree, version):
 	migrate_can_profile(localSettings, tree, version)
 	migrate_remote_support(localSettings, tree, version)
@@ -659,6 +672,7 @@ def migrate(localSettings, tree, version):
 	migrate_guiv2_brief_level(localSettings, tree, version)
 	migrate_relay_manual_polarity(localSettings, tree, version)
 	migrate_ol_delete_orphan_settings(localSettings, tree, version)
+	migrate_shelly_disable_by_default(localSettings, tree, version)
 
 def cleanup_settings(tree):
 	""" Clean up device-specific settings. Used when restoring settings
